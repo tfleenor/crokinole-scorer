@@ -1,5 +1,6 @@
 "use strict";
 
+const APP_VERSION = "v5"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
 const VALUES = [20, 15, 10, 5];
@@ -622,9 +623,105 @@ $("tally-area").addEventListener("click", (e) => {
   renderSide(side);
 });
 
+/* ---------- backup & restore ---------- */
+$("backup-players").addEventListener("click", () => {
+  const blob = new Blob(
+    [JSON.stringify({ app: "crokinole-scorer", exported: new Date().toISOString(), profiles }, null, 2)],
+    { type: "application/json" }
+  );
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `crokinole-players-${new Date().toISOString().slice(0, 10)}.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+});
+
+$("restore-file").addEventListener("change", async (e) => {
+  const file = e.target.files[0];
+  e.target.value = "";
+  if (!file) return;
+  try {
+    const data = JSON.parse(await file.text());
+    const incoming = data.app === "crokinole-scorer" ? data.profiles : data;
+    const valid =
+      incoming &&
+      typeof incoming === "object" &&
+      Object.values(incoming).every(
+        (p) => p && typeof p.name === "string" && Array.isArray(p.samples)
+      );
+    if (!valid) throw new Error("bad shape");
+    const n = Object.keys(profiles).length;
+    const m = Object.keys(incoming).length;
+    if (!confirm(`Replace the ${n} player(s) on this device with the ${m} from the backup?`)) return;
+    profiles = incoming;
+    saveProfiles();
+    pick = [["guest"], ["guest"]];
+    renderPlayers();
+    renderPickers();
+  } catch {
+    alert("That file doesn't look like a crokinole players backup.");
+  }
+});
+
+/* ---------- app updates ---------- */
+let swReg = null;
+let reloading = false;
+
+function showUpdateReady() {
+  $("update-banner").classList.remove("hidden");
+  $("update-status").textContent = "A new version is ready — tap the Update bar.";
+}
+
+function watchForUpdates(reg) {
+  swReg = reg;
+  if (reg.waiting) {
+    showUpdateReady();
+    return;
+  }
+  reg.addEventListener("updatefound", () => {
+    const incoming = reg.installing;
+    incoming.addEventListener("statechange", () => {
+      if (incoming.state === "installed" && navigator.serviceWorker.controller) {
+        showUpdateReady();
+      }
+    });
+  });
+}
+
+$("update-banner").addEventListener("click", () => {
+  swReg?.waiting?.postMessage("SKIP_WAITING");
+});
+
+$("check-updates").addEventListener("click", async () => {
+  const status = $("update-status");
+  if (!swReg) {
+    status.textContent = "Updates only work in the installed/hosted app.";
+    return;
+  }
+  status.textContent = "Checking…";
+  try {
+    await swReg.update();
+    setTimeout(() => {
+      if (swReg.waiting || swReg.installing) showUpdateReady();
+      else status.textContent = `You're on the latest version (${APP_VERSION}).`;
+    }, 1500);
+  } catch {
+    status.textContent = "Couldn't check — are you online?";
+  }
+});
+
 /* ---------- boot ---------- */
 renderPickers();
 render();
+$("app-version").textContent = APP_VERSION;
 if ("serviceWorker" in navigator) {
-  navigator.serviceWorker.register("sw.js");
+  navigator.serviceWorker.register("sw.js").then(watchForUpdates);
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloading) return;
+    reloading = true;
+    location.reload();
+  });
+  document.addEventListener("visibilitychange", () => {
+    if (!document.hidden) swReg?.update().catch(() => {});
+  });
 }

@@ -20,6 +20,8 @@
   </nav>
 </header>
 
+<button id="update-banner" class="update-banner hidden">⬆️ Update ready — tap to install &amp; restart</button>
+
 <!-- ============ SCORE TAB ============ -->
 <main id="view-score">
 
@@ -92,6 +94,12 @@
       <summary>All badges</summary>
       <div id="badge-catalog"></div>
     </details>
+    <div class="backup-row">
+      <button id="backup-players" class="btn">Back up players</button>
+      <label class="btn file-btn">Restore from backup
+        <input id="restore-file" type="file" accept=".json,application/json">
+      </label>
+    </div>
     <p class="hint">A player&rsquo;s rating is their average board points per round
     (12 discs) over their last 30 recorded rounds. After 4 rounds the rating is
     established and can power handicap matches: the lower-rated side is spotted the
@@ -245,9 +253,27 @@
       <p><strong>Handicaps never touch the stats.</strong> Spotted bonus points
       affect only the match score; player histories always record real board
       points, so ratings stay honest.</p>
-      <p><strong>Updates arrive on relaunch.</strong> Because the app caches itself
-      for offline use, a new version downloads while you use the app online and
-      takes effect the next time you open it.</p>
+      <p><strong>Never uninstall to update.</strong> Updating the app never touches
+      your players, ratings, or badges &mdash; but uninstalling it (or clearing the
+      site&rsquo;s data in Chrome) erases them. Use the update flow below, or simply
+      relaunch the app, and your data stays put.</p>
+      <p><strong>Back up your players.</strong> The Players tab has
+      &ldquo;Back up players&rdquo;, which saves all profiles, ratings, and badges
+      to a file you can keep anywhere (Drive, email, downloads). &ldquo;Restore from
+      backup&rdquo; loads such a file, replacing the players on this device &mdash;
+      it&rsquo;s also the way to move your players to a new phone.</p>
+    </details>
+
+    <details>
+      <summary>Updating the app</summary>
+      <p>While you use the app online, it quietly downloads any new version in the
+      background. When one is ready, an <strong>Update ready</strong> bar appears at
+      the top &mdash; tap it to install and restart in place. Closing the app fully
+      and reopening it applies a pending update too. Either way, all of your data is
+      preserved.</p>
+      <p id="version-line">Version: <span id="app-version"></span></p>
+      <button id="check-updates" class="btn">Check for updates</button>
+      <p id="update-status" class="hint"></p>
     </details>
   </section>
 </main>

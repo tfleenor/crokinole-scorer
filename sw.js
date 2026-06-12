@@ -1,4 +1,4 @@
-const CACHE = "crokinole-v4";
+const CACHE = "crokinole-v5";
 const ASSETS = [
   ".",
   "index.html",
@@ -11,7 +11,11 @@ const ASSETS = [
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
-  self.skipWaiting();
+});
+
+/* the page sends this when the user taps Update App */
+self.addEventListener("message", (e) => {
+  if (e.data === "SKIP_WAITING") self.skipWaiting();
 });
 
 self.addEventListener("activate", (e) => {

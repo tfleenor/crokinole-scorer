@@ -193,6 +193,63 @@
       table talk between shots is generally fine in friendly games.</p>
     </details>
   </section>
+
+  <!-- NOTE: keep this section current — update it whenever a feature is
+       added or changed anywhere in the app. -->
+  <section class="card rules" id="about">
+    <h2>About the App</h2>
+
+    <details>
+      <summary>Features</summary>
+      <p><strong>Three game modes.</strong> Singles and doubles play to a target
+      score (50, 100, or 150) using standard differential scoring. Tournament mode
+      plays NCA-style matches of 2&ndash;8 rounds: 2 match points for a round win,
+      1 each for a tie, with total 20s as the automatic tiebreaker.</p>
+      <p><strong>Round tally.</strong> Tap counters for each side&rsquo;s 20s, 15s,
+      10s, and 5s; the app computes round totals and applies the right scoring for
+      the mode. Full round history with undo, and an in-progress game survives
+      closing the app.</p>
+      <p><strong>Player profiles.</strong> Saved players build a rating &mdash;
+      average board points per 12-disc round over their last 30 rounds &mdash; plus
+      win&ndash;loss records and twenties stats. Ratings are provisional until a
+      player has 4 recorded rounds.</p>
+      <p><strong>Handicap matches.</strong> When every spot in a game has an
+      established player, you can enable handicap scoring: the lower-rated side is
+      spotted the rating difference as bonus points every round.</p>
+      <p><strong>Achievements.</strong> 16 badges for round feats (multiple 20s,
+      100-point rounds, shutouts), career milestones (rounds played, career 20s),
+      and match achievements (streaks, comebacks, tournament sweeps, winning while
+      giving a spot). Badges pop with a toast as they&rsquo;re earned, and the full
+      catalog lives in the Players tab.</p>
+      <p><strong>Rules reference.</strong> The Rules tab above covers setup,
+      shooting, the 20 hole, scoring, tournament play, doubles, and this
+      app&rsquo;s handicap system.</p>
+      <p><strong>Works offline.</strong> The app is an installable web app
+      (PWA): add it to your home screen and it runs fullscreen with no connection
+      needed.</p>
+    </details>
+
+    <details>
+      <summary>Things to keep in mind</summary>
+      <p><strong>Everything is stored on this device.</strong> Profiles, ratings,
+      badges, and game history live in this browser&rsquo;s local storage. There is
+      no account and no cloud sync &mdash; profiles built on your phone don&rsquo;t
+      exist on another device, and clearing the browser&rsquo;s site data (or
+      uninstalling the app) erases them permanently.</p>
+      <p><strong>Guests don&rsquo;t accumulate anything.</strong> Only saved
+      profiles build ratings, records, and badges. Use a guest name for one-off
+      opponents you don&rsquo;t want to track.</p>
+      <p><strong>Doubles stats are split evenly.</strong> The app tracks each
+      side&rsquo;s discs, not each player&rsquo;s, so partners share round credit
+      50/50 &mdash; including half-credit each toward career 20s.</p>
+      <p><strong>Handicaps never touch the stats.</strong> Spotted bonus points
+      affect only the match score; player histories always record real board
+      points, so ratings stay honest.</p>
+      <p><strong>Updates arrive on relaunch.</strong> Because the app caches itself
+      for offline use, a new version downloads while you use the app online and
+      takes effect the next time you open it.</p>
+    </details>
+  </section>
 </main>
 
 <div id="toasts"></div>

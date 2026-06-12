@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "v5"; // keep in step with CACHE in sw.js
+const APP_VERSION = "v6"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
 const VALUES = [20, 15, 10, 5];
@@ -724,4 +724,17 @@ if ("serviceWorker" in navigator) {
   document.addEventListener("visibilitychange", () => {
     if (!document.hidden) swReg?.update().catch(() => {});
   });
+}
+
+/* ask the browser to protect this origin's storage from auto-eviction */
+if (navigator.storage && navigator.storage.persist) {
+  navigator.storage
+    .persisted()
+    .then((ok) => ok || navigator.storage.persist())
+    .then((ok) => {
+      $("persist-line").textContent = ok
+        ? "Storage protection: on — the browser won't auto-evict this app's data."
+        : "Storage protection: not granted — keep backups of your players.";
+    })
+    .catch(() => {});
 }

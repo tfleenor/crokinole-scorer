@@ -243,7 +243,10 @@
       badges, and game history live in this browser&rsquo;s local storage. There is
       no account and no cloud sync &mdash; profiles built on your phone don&rsquo;t
       exist on another device, and clearing the browser&rsquo;s site data (or
-      uninstalling the app) erases them permanently.</p>
+      uninstalling the app) erases them permanently. The app asks the browser for
+      <em>persistent storage</em> so the data won&rsquo;t be evicted automatically
+      when space runs low (status shown under &ldquo;Updating the app&rdquo;), but a
+      backup file is the only true safeguard.</p>
       <p><strong>Guests don&rsquo;t accumulate anything.</strong> Only saved
       profiles build ratings, records, and badges. Use a guest name for one-off
       opponents you don&rsquo;t want to track.</p>
@@ -272,6 +275,7 @@
       and reopening it applies a pending update too. Either way, all of your data is
       preserved.</p>
       <p id="version-line">Version: <span id="app-version"></span></p>
+      <p id="persist-line" class="hint"></p>
       <button id="check-updates" class="btn">Check for updates</button>
       <p id="update-status" class="hint"></p>
     </details>

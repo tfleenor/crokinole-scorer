@@ -1,0 +1,13 @@
+{
+  "name": "Crokinole Scorer & Rules",
+  "short_name": "Crokinole",
+  "description": "Score keeper and rules reference for Crokinole — singles, doubles, and tournament play.",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#221c18",
+  "theme_color": "#221c18",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

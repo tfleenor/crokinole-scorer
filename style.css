@@ -240,6 +240,31 @@ h3 { margin-top: 0; color: var(--muted); font-size: 0.95rem; text-transform: upp
 .badge-desc { color: var(--muted); font-size: 0.82rem; }
 .badge-row.locked { opacity: 0.45; filter: grayscale(1); }
 
+/* ---- experience & levels ---- */
+.profile-main { flex: 1; min-width: 0; }
+.profile-level { color: var(--text); font-size: 0.88rem; margin-top: 4px; }
+.lv-num {
+  background: var(--wood-deep);
+  color: #fff;
+  font-weight: 700;
+  font-size: 0.78rem;
+  padding: 2px 7px;
+  border-radius: 999px;
+}
+.lv-num.big { flex-shrink: 0; }
+.xp-bar {
+  height: 6px;
+  background: var(--bg);
+  border-radius: 999px;
+  margin: 6px 0 4px;
+  overflow: hidden;
+}
+.xp-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--wood-deep), var(--wood));
+  border-radius: 999px;
+}
+
 /* ---- update banner ---- */
 .update-banner {
   display: block;

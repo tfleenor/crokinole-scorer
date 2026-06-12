@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "v6"; // keep in step with CACHE in sw.js
+const APP_VERSION = "v7"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
 const VALUES = [20, 15, 10, 5];
@@ -50,6 +50,50 @@ const BADGES = [
 ];
 const BADGE_MAP = Object.fromEntries(BADGES.map((b) => [b.id, b]));
 
+/* ---------- experience & levels ---------- */
+const XP = {
+  round: 10, // each round played
+  twenty: 5, // each 20 sunk (half-credit in doubles)
+  roundWin: 15,
+  roundTie: 5,
+  gamePlayed: 20,
+  gameWin: 50, // on top of gamePlayed
+  badge: 25, // each new badge
+};
+
+const LEVELS = [
+  { xp: 0, title: "Rookie Flicker" },
+  { xp: 100, title: "Disc Apprentice" },
+  { xp: 250, title: "Steady Hand" },
+  { xp: 500, title: "Line Rider" },
+  { xp: 1000, title: "Ditch Dodger" },
+  { xp: 1750, title: "Peg Wizard" },
+  { xp: 2750, title: "Twenty Hunter" },
+  { xp: 4000, title: "Board Boss" },
+  { xp: 5500, title: "Flick Master" },
+  { xp: 7500, title: "Crokinole Sage" },
+  { xp: 10000, title: "Grand Flicker" },
+  { xp: 13000, title: "Crokinole Legend" },
+];
+
+function levelInfo(xp) {
+  let i = 0;
+  while (i + 1 < LEVELS.length && xp >= LEVELS[i + 1].xp) i++;
+  return {
+    n: i + 1,
+    title: LEVELS[i].title,
+    cur: LEVELS[i].xp,
+    next: i + 1 < LEVELS.length ? LEVELS[i + 1].xp : null,
+  };
+}
+
+function addXp(pid, amount, entry) {
+  amount = Math.round(amount);
+  if (!amount) return;
+  profiles[pid].xp = (profiles[pid].xp || 0) + amount;
+  entry.xp[pid] = (entry.xp[pid] || 0) + amount;
+}
+
 function award(pid, id, entry, newly) {
   const p = profiles[pid];
   if (!p.badges) p.badges = {};
@@ -57,6 +101,7 @@ function award(pid, id, entry, newly) {
   p.badges[id] = Date.now();
   entry.newBadges.push({ pid, id });
   newly.push({ pid, id });
+  addXp(pid, XP.badge, entry);
 }
 
 /* per-round feats and career milestones (in doubles, both partners share
@@ -104,7 +149,9 @@ function awardGameEnd(entry, newly) {
         streak: p.streak || 0,
       });
       p.games = (p.games || 0) + 1;
+      addXp(pid, XP.gamePlayed, entry);
       if (i === winSide) {
+        addXp(pid, XP.gameWin, entry);
         p.wins = (p.wins || 0) + 1;
         p.streak = (p.streak || 0) + 1;
         if (p.wins === 1) award(pid, "first-win", entry, newly);
@@ -125,15 +172,12 @@ function awardGameEnd(entry, newly) {
   }
 }
 
-function showBadgeToasts(newly) {
-  newly.forEach(({ pid, id }, k) => {
-    const b = BADGE_MAP[id];
-    const p = profiles[pid];
-    if (!b || !p) return;
+function showToasts(items) {
+  items.forEach((t, k) => {
     setTimeout(() => {
       const el = document.createElement("div");
       el.className = "toast";
-      el.innerHTML = `<span class="toast-icon">${b.icon}</span><div><strong>${b.name}</strong><br>${esc(p.name)} — ${b.desc}</div>`;
+      el.innerHTML = `<span class="toast-icon">${t.icon}</span><div>${t.html}</div>`;
       $("toasts").appendChild(el);
       setTimeout(() => el.classList.add("gone"), 3600);
       setTimeout(() => el.remove(), 4200);
@@ -317,8 +361,17 @@ $("score-round").addEventListener("click", () => {
     awarded: [0, 0],
     credits: [],
     newBadges: [],
+    xp: {},
   };
   const newly = [];
+  const prevLevels = {};
+  for (const side of state.sides) {
+    for (const pid of side.players) {
+      if (pid !== "guest" && profiles[pid]) {
+        prevLevels[pid] = levelInfo(profiles[pid].xp || 0).n;
+      }
+    }
+  }
 
   if (state.mode === "tournament") {
     if (adj[0] > adj[1]) entry.awarded = [2, 0];
@@ -333,15 +386,27 @@ $("score-round").addEventListener("click", () => {
   /* credit real (unadjusted) board points to profile histories */
   for (let i = 0; i < 2; i++) {
     const players = state.sides[i].players;
+    const result =
+      state.mode === "tournament"
+        ? entry.awarded[i] === 2 ? "win" : entry.awarded[i] === 1 ? "tie" : "loss"
+        : entry.awarded[i] > 0 ? "win" : entry.awarded[1 - i] > 0 ? "loss" : "tie";
     for (const pid of players) {
       if (pid === "guest" || !profiles[pid]) continue;
+      const twShare = state.tally[i][20] / players.length;
       profiles[pid].samples.push({
         pts: pts[i] / players.length,
         discs: 12 / players.length,
-        tw: state.tally[i][20] / players.length,
+        tw: twShare,
       });
       entry.credits.push(pid);
       checkRoundBadges(pid, i, entry, pts, newly);
+      addXp(
+        pid,
+        XP.round +
+          twShare * XP.twenty +
+          (result === "win" ? XP.roundWin : result === "tie" ? XP.roundTie : 0),
+        entry
+      );
     }
   }
 
@@ -356,7 +421,24 @@ $("score-round").addEventListener("click", () => {
   saveProfiles();
   save();
   render();
-  showBadgeToasts(newly);
+
+  const toasts = newly.map(({ pid, id }) => {
+    const b = BADGE_MAP[id];
+    return {
+      icon: b.icon,
+      html: `<strong>${b.name}</strong><br>${esc(profiles[pid].name)} — ${b.desc}`,
+    };
+  });
+  for (const pid of Object.keys(prevLevels)) {
+    const lv = levelInfo(profiles[pid].xp || 0);
+    if (lv.n > prevLevels[pid]) {
+      toasts.push({
+        icon: "⭐",
+        html: `<strong>Level ${lv.n} — ${lv.title}</strong><br>${esc(profiles[pid].name)} leveled up!`,
+      });
+    }
+  }
+  showToasts(toasts);
 });
 
 $("undo").addEventListener("click", () => {
@@ -367,6 +449,9 @@ $("undo").addEventListener("click", () => {
   state.twenties[0] -= entry.tally[0][20];
   state.twenties[1] -= entry.tally[1][20];
   for (const pid of entry.credits || []) profiles[pid]?.samples.pop();
+  for (const [pid, dx] of Object.entries(entry.xp || {})) {
+    if (profiles[pid]) profiles[pid].xp = (profiles[pid].xp || 0) - dx;
+  }
   for (const { pid, id } of entry.newBadges || []) {
     if (profiles[pid]?.badges) delete profiles[pid].badges[id];
   }
@@ -448,9 +533,16 @@ function renderPlayers() {
                   `<span class="badge-icon" title="${b.name} — ${b.desc}">${b.icon}</span>`
               )
               .join("");
+            const xp = p.xp || 0;
+            const lv = levelInfo(xp);
+            const prog = lv.next
+              ? Math.round(((xp - lv.cur) / (lv.next - lv.cur)) * 100)
+              : 100;
             return `<div class="profile-row" data-id="${p.id}">
-              <div>
+              <div class="profile-main">
                 <div class="profile-name">${esc(p.name)}</div>
+                <div class="profile-level"><span class="lv-num">Lv ${lv.n}</span> ${lv.title} · ${xp.toLocaleString()} XP${lv.next ? ` · next at ${lv.next.toLocaleString()}` : " · max level"}</div>
+                <div class="xp-bar"><div class="xp-fill" style="width:${prog}%"></div></div>
                 <div class="profile-stats">${stat} · ${n} rounds · ${wins}W–${losses}L · ${tw} twenties/round</div>
                 ${badges ? `<div class="profile-badges">${badges}</div>` : ""}
               </div>
@@ -458,6 +550,13 @@ function renderPlayers() {
             </div>`;
           })
           .join("");
+
+  $("level-catalog").innerHTML = LEVELS.map(
+    (l, idx) => `<div class="badge-row">
+      <span class="lv-num big">Lv ${idx + 1}</span>
+      <div><strong>${l.title}</strong><div class="badge-desc">${l.xp.toLocaleString()} XP</div></div>
+    </div>`
+  ).join("");
 
   $("badge-catalog").innerHTML = BADGES.map((b) => {
     const earned = Object.values(profiles).some(
@@ -711,6 +810,25 @@ $("check-updates").addEventListener("click", async () => {
 });
 
 /* ---------- boot ---------- */
+/* one-time XP backfill for profiles created before the levels system */
+{
+  let migrated = false;
+  for (const p of Object.values(profiles)) {
+    if (p.xp === undefined) {
+      const tw = p.samples.reduce((s, x) => s + x.tw, 0);
+      p.xp = Math.round(
+        p.samples.length * XP.round +
+          tw * XP.twenty +
+          (p.games || 0) * XP.gamePlayed +
+          (p.wins || 0) * XP.gameWin +
+          Object.keys(p.badges || {}).length * XP.badge
+      );
+      migrated = true;
+    }
+  }
+  if (migrated) saveProfiles();
+}
+
 renderPickers();
 render();
 $("app-version").textContent = APP_VERSION;

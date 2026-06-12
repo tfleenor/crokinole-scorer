@@ -36,6 +36,12 @@
       </select>
     </label>
     <div id="side-pickers"></div>
+    <label class="field" id="discs-field">Discs per player
+      <select id="discs">
+        <option value="8" selected>8 (official rules)</option>
+        <option value="12">12 (home / recreational)</option>
+      </select>
+    </label>
     <label class="field" id="target-field">Play to
       <select id="target">
         <option value="50">50 points</option>
@@ -108,7 +114,8 @@
       </label>
     </div>
     <p class="hint">A player&rsquo;s rating is their average board points per round
-    (12 discs) over their last 30 recorded rounds. After 4 rounds the rating is
+    (normalized to an official 8-disc round) over their last 30 recorded rounds.
+    After 4 rounds the rating is
     established and can power handicap matches: the lower-rated side is spotted the
     rating difference as bonus points every round. Assign profiles to sides when
     starting a game to build history &mdash; in doubles, credit is split evenly
@@ -128,9 +135,12 @@
       points from the inside out. Eight rubber posts guard the centre, spaced around
       the inner circle. Discs knocked off the playing surface land in the outer
       ditch and score nothing.</p>
-      <p>Each side gets <strong>12 discs</strong>. In singles, opponents sit directly
-      opposite. In doubles, partners sit opposite each other and each player shoots
-      6 of the team&rsquo;s 12 discs. Play passes clockwise, alternating sides.</p>
+      <p>In official competitive play (NCA / World Crokinole Championship rules),
+      each player gets <strong>8 discs</strong> in singles, with opponents sitting
+      directly opposite. In doubles, partners sit opposite each other and each
+      player shoots <strong>6 discs</strong> (12 per team). Play passes clockwise,
+      alternating sides. Many home sets deal 12 discs each for casual singles
+      &mdash; the app supports both; pick the disc count when starting a game.</p>
     </details>
 
     <details>
@@ -139,8 +149,9 @@
       your own quadrant, and flick it with one finger. You may not move your chair,
       and by tradition at least one cheek must stay on your seat (the
       &ldquo;one-cheek rule&rdquo;).</p>
-      <p>Players alternate shots until all 24 discs have been played; that completes
-      one round. The player who shot second in a round shoots first in the next.</p>
+      <p>Players alternate shots until all discs have been played &mdash; 16 in
+      official singles, 24 in doubles &mdash; which completes one round. The player
+      who shot second in a round shoots first in the next.</p>
     </details>
 
     <details>
@@ -157,8 +168,8 @@
       <p>If your opponent has <em>any</em> disc on the board, your shot must touch an
       opponent&rsquo;s disc &mdash; either directly or through a combination off your
       own discs. If it fails to do so, your shooter is removed to the ditch, along
-      with <em>any of your own discs it moved</em>. Opponent discs disturbed by an
-      invalid shot stay where they end up.</p>
+      with <em>all of your own discs that the shot struck</em>. Opponent discs
+      disturbed by an invalid shot stay where they end up.</p>
       <p>If the opponent has <em>no</em> discs on the board (an &ldquo;open
       board&rdquo;), your shot must come to rest entirely inside, or touching, the
       inner 15 circle &mdash; in other words, a legitimate attempt at the 20.
@@ -167,7 +178,7 @@
 
     <details>
       <summary>Scoring a round</summary>
-      <p>When all 24 discs are played, each side counts its 20s plus the discs it has
+      <p>When all discs are played, each side counts its 20s plus the discs it has
       left on the board. A disc must be <em>entirely</em> inside a zone to score that
       zone&rsquo;s value; a disc touching a line scores the lower zone. Discs in the
       ditch, or touching the outer edge, score nothing.</p>
@@ -181,18 +192,21 @@
       <summary>Tournament scoring (NCA-style)</summary>
       <p>In tournament play, each <strong>round is worth 2 match points</strong>:
       the side with the higher board total takes both points, and a tied round gives
-      1 point to each side. A typical match is 4 rounds, producing scores like
-      6&ndash;2 or 5&ndash;3.</p>
-      <p>Every 20 scored is also tallied individually. Total 20s are the standard
-      tiebreaker and are used for tournament rankings.</p>
+      1 point to each side. An official game is <strong>4 rounds</strong> (8 points
+      available), producing scores like 6&ndash;2 or 5&ndash;3; at the World
+      Championship a tied game gets an extra deciding round.</p>
+      <p>Every 20 scored is tallied individually and removed to a spot visible to
+      all players. Tournament ties break by head-to-head record, then total 20s,
+      then a 20-hole shoot-out.</p>
     </details>
 
     <details>
       <summary>Handicap play (this app)</summary>
       <p>Crokinole has no official handicap system, so this app uses a simple one
       modelled on golf. Each saved player carries a <strong>rating</strong>: their
-      average board points per round over their most recent 30 rounds. A rating
-      becomes established after 4 recorded rounds.</p>
+      average board points per round, normalized to an official 8-disc round, over
+      their most recent 30 rounds. A rating becomes established after 4 recorded
+      rounds.</p>
       <p>In a handicap match, the side with the lower rating (in doubles, the average
       of the partners&rsquo; ratings) is <strong>spotted the rating difference as
       bonus points every round</strong>, added to its board total before the round is
@@ -219,13 +233,16 @@
       <p><strong>Three game modes.</strong> Singles and doubles play to a target
       score (50, 100, or 150) using standard differential scoring. Tournament mode
       plays NCA-style matches of 2&ndash;8 rounds: 2 match points for a round win,
-      1 each for a tie, with total 20s as the automatic tiebreaker.</p>
+      1 each for a tie, with total 20s as the automatic tiebreaker. Disc counts
+      follow the official rules &mdash; 8 per player in singles, 6 in doubles
+      &mdash; with a 12-disc option for casual singles on home sets.</p>
       <p><strong>Round tally.</strong> Tap counters for each side&rsquo;s 20s, 15s,
       10s, and 5s; the app computes round totals and applies the right scoring for
       the mode. Full round history with undo, and an in-progress game survives
       closing the app.</p>
       <p><strong>Player profiles.</strong> Saved players build a rating &mdash;
-      average board points per 12-disc round over their last 30 rounds &mdash; plus
+      average board points per round, normalized to an official 8-disc round, over
+      their last 30 rounds &mdash; plus
       win&ndash;loss records and twenties stats. Ratings are provisional until a
       player has 4 recorded rounds.</p>
       <p><strong>Handicap matches.</strong> When every spot in a game has an

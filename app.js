@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "v8"; // keep in step with CACHE in sw.js
+const APP_VERSION = "v9"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
 const VALUES = [20, 15, 10, 5];
@@ -191,7 +191,7 @@ function rating(p) {
   const discs = recent.reduce((s, x) => s + x.discs, 0);
   if (!discs) return null;
   const pts = recent.reduce((s, x) => s + x.pts, 0);
-  return (pts / discs) * 12; // board points per full round of 12 discs
+  return (pts / discs) * 8; // board points normalized to an official 8-disc round
 }
 const established = (p) => p.samples.length >= MIN_ROUNDS;
 
@@ -209,11 +209,20 @@ function showTab(which) {
 
 /* ---------- setup ---------- */
 $("mode").addEventListener("change", () => {
-  const tourney = $("mode").value === "tournament";
-  $("target-field").classList.toggle("hidden", tourney);
-  $("rounds-field").classList.toggle("hidden", !tourney);
+  const mode = $("mode").value;
+  $("target-field").classList.toggle("hidden", mode === "tournament");
+  $("rounds-field").classList.toggle("hidden", mode !== "tournament");
+  $("discs-field").classList.toggle("hidden", mode === "doubles");
   renderPickers();
 });
+
+$("discs").addEventListener("change", renderHandicapRow);
+
+/* discs each player shoots per round: official 6 in doubles, else the
+   setup choice (8 official / 12 home-style singles) */
+function discsPerPlayer() {
+  return $("mode").value === "doubles" ? 6 : parseInt($("discs").value, 10) || 8;
+}
 
 $("side-pickers").addEventListener("change", (e) => {
   if (!e.target.classList.contains("picker")) return;
@@ -275,10 +284,13 @@ function handicapInfo() {
   if (new Set(ids).size !== ids.length) {
     return { ok: false, reason: "The same player can't be on both sides." };
   }
+  /* expected board points a side adds per round: each player's per-8-disc
+     rating scaled by how many discs they actually shoot */
+  const scale = discsPerPlayer() / 8;
   const exps = sidePicks.map((row) => {
     const ps = row.map((id) => (id !== "guest" ? profiles[id] : null));
     if (ps.some((p) => !p || !established(p))) return null;
-    return ps.reduce((sum, p) => sum + rating(p), 0) / ps.length;
+    return ps.reduce((sum, p) => sum + rating(p), 0) * scale;
   });
   if (exps.some((e) => e === null)) {
     return {
@@ -334,6 +346,7 @@ $("start").addEventListener("click", () => {
   state = {
     mode,
     sides,
+    discs: discsPerPlayer(),
     target: parseInt($("target").value, 10),
     totalRounds: parseInt($("totalRounds").value, 10),
     handicap: hc && hc.ok && hc.bonus > 0 ? { to: hc.to, bonus: hc.bonus } : null,
@@ -395,7 +408,7 @@ $("score-round").addEventListener("click", () => {
       const twShare = state.tally[i][20] / players.length;
       profiles[pid].samples.push({
         pts: pts[i] / players.length,
-        discs: 12 / players.length,
+        discs: state.discs || 8,
         tw: twShare,
       });
       entry.credits.push(pid);
@@ -723,7 +736,8 @@ $("tally-area").addEventListener("click", (e) => {
   const side = parseInt(row.dataset.side, 10);
   const value = row.dataset.value;
   const t = state.tally[side];
-  if (btn.classList.contains("inc") && t[value] < 12) t[value]++;
+  const sideDiscs = (state.discs || 8) * state.sides[side].players.length;
+  if (btn.classList.contains("inc") && t[value] < sideDiscs) t[value]++;
   if (btn.classList.contains("dec") && t[value] > 0) t[value]--;
   save();
   renderSide(side);

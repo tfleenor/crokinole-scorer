@@ -28,6 +28,118 @@ const saveProfiles = () =>
 
 const $ = (id) => document.getElementById(id);
 
+/* ---------- badges ---------- */
+const BADGES = [
+  { id: "first-round", icon: "🌱", name: "Warming Up", desc: "Record your first round." },
+  { id: "double-20", icon: "🎯", name: "Double Deuce", desc: "Two 20s in a single round." },
+  { id: "hat-trick", icon: "🎩", name: "Hat Trick", desc: "Three 20s in a single round." },
+  { id: "quad-20", icon: "👁️", name: "20/20 Vision", desc: "Four or more 20s in a single round." },
+  { id: "century", icon: "💯", name: "Century Club", desc: "Score 100+ board points in one round." },
+  { id: "shutout", icon: "🦨", name: "Skunked 'Em", desc: "Take a round while holding the other side to zero." },
+  { id: "first-win", icon: "🏆", name: "Winner Winner", desc: "Win your first game." },
+  { id: "streak-3", icon: "🔥", name: "Heater", desc: "Win three games in a row." },
+  { id: "comeback", icon: "🚀", name: "Comeback Kid", desc: "Win a points game after trailing by 30 or more." },
+  { id: "sweep", icon: "🧹", name: "Clean Sweep", desc: "Win every round of a tournament match." },
+  { id: "too-good", icon: "😎", name: "Too Good", desc: "Win a match while giving a handicap spot." },
+  { id: "rounds-25", icon: "🪑", name: "Regular", desc: "Record 25 career rounds." },
+  { id: "rounds-100", icon: "🛡️", name: "Veteran", desc: "Record 100 career rounds." },
+  { id: "tw-10", icon: "🏹", name: "Marksman", desc: "Sink 10 career 20s." },
+  { id: "tw-50", icon: "🎖️", name: "Sharpshooter", desc: "Sink 50 career 20s." },
+  { id: "tw-100", icon: "🦅", name: "Sniper", desc: "Sink 100 career 20s." },
+];
+const BADGE_MAP = Object.fromEntries(BADGES.map((b) => [b.id, b]));
+
+function award(pid, id, entry, newly) {
+  const p = profiles[pid];
+  if (!p.badges) p.badges = {};
+  if (p.badges[id]) return;
+  p.badges[id] = Date.now();
+  entry.newBadges.push({ pid, id });
+  newly.push({ pid, id });
+}
+
+/* per-round feats and career milestones (in doubles, both partners share
+   side feats and earn half-credit toward career 20s) */
+function checkRoundBadges(pid, i, entry, pts, newly) {
+  const p = profiles[pid];
+  const t = entry.tally[i];
+  if (p.samples.length === 1) award(pid, "first-round", entry, newly);
+  if (t[20] >= 2) award(pid, "double-20", entry, newly);
+  if (t[20] >= 3) award(pid, "hat-trick", entry, newly);
+  if (t[20] >= 4) award(pid, "quad-20", entry, newly);
+  if (pts[i] >= 100) award(pid, "century", entry, newly);
+  if (pts[i] > 0 && pts[1 - i] === 0) award(pid, "shutout", entry, newly);
+  const n = p.samples.length;
+  if (n >= 25) award(pid, "rounds-25", entry, newly);
+  if (n >= 100) award(pid, "rounds-100", entry, newly);
+  const tw = p.samples.reduce((s, x) => s + x.tw, 0);
+  if (tw >= 10) award(pid, "tw-10", entry, newly);
+  if (tw >= 50) award(pid, "tw-50", entry, newly);
+  if (tw >= 100) award(pid, "tw-100", entry, newly);
+}
+
+function wonFromBehind(winSide) {
+  if (state.mode === "tournament") return false;
+  let mine = 0, theirs = 0;
+  for (const r of state.rounds) {
+    mine += r.awarded[winSide];
+    theirs += r.awarded[1 - winSide];
+    if (theirs - mine >= 30) return true;
+  }
+  return false;
+}
+
+function awardGameEnd(entry, newly) {
+  const winSide = state.winner;
+  entry.gameStats = [];
+  for (let i = 0; i < 2; i++) {
+    for (const pid of state.sides[i].players) {
+      if (pid === "guest" || !profiles[pid]) continue;
+      const p = profiles[pid];
+      entry.gameStats.push({
+        pid,
+        wins: p.wins || 0,
+        games: p.games || 0,
+        streak: p.streak || 0,
+      });
+      p.games = (p.games || 0) + 1;
+      if (i === winSide) {
+        p.wins = (p.wins || 0) + 1;
+        p.streak = (p.streak || 0) + 1;
+        if (p.wins === 1) award(pid, "first-win", entry, newly);
+        if (p.streak >= 3) award(pid, "streak-3", entry, newly);
+        if (wonFromBehind(winSide)) award(pid, "comeback", entry, newly);
+        if (
+          state.mode === "tournament" &&
+          state.rounds.every((r) => r.awarded[winSide] === 2)
+        ) {
+          award(pid, "sweep", entry, newly);
+        }
+        if (state.handicap && state.handicap.to !== winSide)
+          award(pid, "too-good", entry, newly);
+      } else {
+        p.streak = 0;
+      }
+    }
+  }
+}
+
+function showBadgeToasts(newly) {
+  newly.forEach(({ pid, id }, k) => {
+    const b = BADGE_MAP[id];
+    const p = profiles[pid];
+    if (!b || !p) return;
+    setTimeout(() => {
+      const el = document.createElement("div");
+      el.className = "toast";
+      el.innerHTML = `<span class="toast-icon">${b.icon}</span><div><strong>${b.name}</strong><br>${esc(p.name)} — ${b.desc}</div>`;
+      $("toasts").appendChild(el);
+      setTimeout(() => el.classList.add("gone"), 3600);
+      setTimeout(() => el.remove(), 4200);
+    }, k * 800);
+  });
+}
+
 /* ---------- ratings ---------- */
 function rating(p) {
   const recent = p.samples.slice(-RATING_WINDOW);
@@ -203,7 +315,9 @@ $("score-round").addEventListener("click", () => {
     adj,
     awarded: [0, 0],
     credits: [],
+    newBadges: [],
   };
+  const newly = [];
 
   if (state.mode === "tournament") {
     if (adj[0] > adj[1]) entry.awarded = [2, 0];
@@ -226,9 +340,9 @@ $("score-round").addEventListener("click", () => {
         tw: state.tally[i][20] / players.length,
       });
       entry.credits.push(pid);
+      checkRoundBadges(pid, i, entry, pts, newly);
     }
   }
-  saveProfiles();
 
   state.scores[0] += entry.awarded[0];
   state.scores[1] += entry.awarded[1];
@@ -237,8 +351,11 @@ $("score-round").addEventListener("click", () => {
   state.rounds.push(entry);
   state.tally = [blankTally(), blankTally()];
   checkWinner();
+  if (state.winner === 0 || state.winner === 1) awardGameEnd(entry, newly);
+  saveProfiles();
   save();
   render();
+  showBadgeToasts(newly);
 });
 
 $("undo").addEventListener("click", () => {
@@ -249,6 +366,17 @@ $("undo").addEventListener("click", () => {
   state.twenties[0] -= entry.tally[0][20];
   state.twenties[1] -= entry.tally[1][20];
   for (const pid of entry.credits || []) profiles[pid]?.samples.pop();
+  for (const { pid, id } of entry.newBadges || []) {
+    if (profiles[pid]?.badges) delete profiles[pid].badges[id];
+  }
+  for (const g of entry.gameStats || []) {
+    const p = profiles[g.pid];
+    if (p) {
+      p.wins = g.wins;
+      p.games = g.games;
+      p.streak = g.streak;
+    }
+  }
   saveProfiles();
   state.tally = entry.tally;
   state.winner = null;
@@ -308,15 +436,37 @@ function renderPlayers() {
               r === null
                 ? "no rounds yet"
                 : `${r.toFixed(1)} pts/round${established(p) ? "" : ` · provisional (${n}/${MIN_ROUNDS})`}`;
+            const wins = p.wins || 0;
+            const losses = (p.games || 0) - wins;
+            const badges = Object.entries(p.badges || {})
+              .sort((x, y) => x[1] - y[1])
+              .map(([id]) => BADGE_MAP[id])
+              .filter(Boolean)
+              .map(
+                (b) =>
+                  `<span class="badge-icon" title="${b.name} — ${b.desc}">${b.icon}</span>`
+              )
+              .join("");
             return `<div class="profile-row" data-id="${p.id}">
               <div>
                 <div class="profile-name">${esc(p.name)}</div>
-                <div class="profile-stats">${stat} · ${n} rounds · ${tw} twenties/round</div>
+                <div class="profile-stats">${stat} · ${n} rounds · ${wins}W–${losses}L · ${tw} twenties/round</div>
+                ${badges ? `<div class="profile-badges">${badges}</div>` : ""}
               </div>
               <button class="del-profile" aria-label="delete player">✕</button>
             </div>`;
           })
           .join("");
+
+  $("badge-catalog").innerHTML = BADGES.map((b) => {
+    const earned = Object.values(profiles).some(
+      (p) => p.badges && p.badges[b.id]
+    );
+    return `<div class="badge-row${earned ? "" : " locked"}">
+      <span class="badge-icon big">${b.icon}</span>
+      <div><strong>${b.name}</strong><div class="badge-desc">${b.desc}</div></div>
+    </div>`;
+  }).join("");
 }
 
 $("add-profile").addEventListener("submit", (e) => {

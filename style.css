@@ -218,6 +218,62 @@ h3 { margin-top: 0; color: var(--muted); font-size: 0.95rem; text-transform: upp
   flex-shrink: 0;
 }
 
+/* ---- badges ---- */
+.profile-badges { margin-top: 6px; font-size: 1.2rem; letter-spacing: 4px; }
+.badge-icon { cursor: default; }
+.badge-icon.big { font-size: 1.5rem; flex-shrink: 0; width: 36px; text-align: center; }
+.badge-catalog { margin-top: 4px; }
+.badge-catalog summary {
+  font-weight: 600;
+  color: var(--wood);
+  cursor: pointer;
+  padding: 8px 0;
+}
+.badge-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--card-edge);
+}
+.badge-row strong { font-size: 0.95rem; }
+.badge-desc { color: var(--muted); font-size: 0.82rem; }
+.badge-row.locked { opacity: 0.45; filter: grayscale(1); }
+
+/* ---- achievement toasts ---- */
+#toasts {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: min(92vw, 420px);
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--card);
+  border: 2px solid var(--wood);
+  border-radius: 12px;
+  padding: 12px 14px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.5);
+  font-size: 0.92rem;
+  animation: toast-in 0.35s ease-out;
+  transition: opacity 0.5s, transform 0.5s;
+}
+.toast strong { color: var(--wood); }
+.toast-icon { font-size: 1.8rem; }
+.toast.gone { opacity: 0; transform: translateY(10px); }
+@keyframes toast-in {
+  from { opacity: 0; transform: translateY(20px) scale(0.95); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
 @media (max-width: 380px) {
   .counter button { width: 36px; height: 36px; }
 }

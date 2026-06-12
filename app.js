@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "v7"; // keep in step with CACHE in sw.js
+const APP_VERSION = "v8"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
 const VALUES = [20, 15, 10, 5];
@@ -551,22 +551,29 @@ function renderPlayers() {
           })
           .join("");
 
-  $("level-catalog").innerHTML = LEVELS.map(
-    (l, idx) => `<div class="badge-row">
-      <span class="lv-num big">Lv ${idx + 1}</span>
-      <div><strong>${l.title}</strong><div class="badge-desc">${l.xp.toLocaleString()} XP</div></div>
-    </div>`
-  ).join("");
+  /* null guards so a stale-cache html/js mismatch can't blank the whole tab */
+  const badgeCatalog = $("badge-catalog");
+  if (badgeCatalog) {
+    badgeCatalog.innerHTML = BADGES.map((b) => {
+      const earned = Object.values(profiles).some(
+        (p) => p.badges && p.badges[b.id]
+      );
+      return `<div class="badge-row${earned ? "" : " locked"}">
+        <span class="badge-icon big">${b.icon}</span>
+        <div><strong>${b.name}</strong><div class="badge-desc">${b.desc}</div></div>
+      </div>`;
+    }).join("");
+  }
 
-  $("badge-catalog").innerHTML = BADGES.map((b) => {
-    const earned = Object.values(profiles).some(
-      (p) => p.badges && p.badges[b.id]
-    );
-    return `<div class="badge-row${earned ? "" : " locked"}">
-      <span class="badge-icon big">${b.icon}</span>
-      <div><strong>${b.name}</strong><div class="badge-desc">${b.desc}</div></div>
-    </div>`;
-  }).join("");
+  const levelCatalog = $("level-catalog");
+  if (levelCatalog) {
+    levelCatalog.innerHTML = LEVELS.map(
+      (l, idx) => `<div class="badge-row">
+        <span class="lv-num big">Lv ${idx + 1}</span>
+        <div><strong>${l.title}</strong><div class="badge-desc">${l.xp.toLocaleString()} XP</div></div>
+      </div>`
+    ).join("");
+  }
 }
 
 $("add-profile").addEventListener("submit", (e) => {

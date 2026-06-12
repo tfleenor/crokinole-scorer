@@ -1,4 +1,4 @@
-const CACHE = "crokinole-v7";
+const CACHE = "crokinole-v8";
 const ASSETS = [
   ".",
   "index.html",
@@ -10,7 +10,15 @@ const ASSETS = [
 ];
 
 self.addEventListener("install", (e) => {
-  e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)));
+  // bypass the HTTP cache so every asset in a version is fetched fresh,
+  // keeping html/js/css from the same deploy
+  e.waitUntil(
+    caches
+      .open(CACHE)
+      .then((c) =>
+        c.addAll(ASSETS.map((u) => new Request(u, { cache: "no-cache" })))
+      )
+  );
 });
 
 /* the page sends this when the user taps Update App */

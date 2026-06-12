@@ -15,6 +15,7 @@
   <h1>Crokinole</h1>
   <nav>
     <button id="tab-score" class="tab active">Score</button>
+    <button id="tab-players" class="tab">Players</button>
     <button id="tab-rules" class="tab">Rules</button>
   </nav>
 </header>
@@ -32,12 +33,7 @@
         <option value="tournament">Tournament (NCA-style rounds)</option>
       </select>
     </label>
-    <label class="field">Side 1 name
-      <input id="name0" type="text" placeholder="Player / Team 1" maxlength="20">
-    </label>
-    <label class="field">Side 2 name
-      <input id="name1" type="text" placeholder="Player / Team 2" maxlength="20">
-    </label>
+    <div id="side-pickers"></div>
     <label class="field" id="target-field">Play to
       <select id="target">
         <option value="50">50 points</option>
@@ -53,6 +49,10 @@
         <option value="8">8 rounds</option>
       </select>
     </label>
+    <div id="handicap-row">
+      <label class="check"><input type="checkbox" id="use-handicap"> Handicap match (spot points)</label>
+      <p id="handicap-hint" class="hint"></p>
+    </div>
     <button id="start" class="btn primary big">Start Game</button>
   </section>
 
@@ -76,6 +76,24 @@
       <h3>Rounds</h3>
       <ol id="history-list"></ol>
     </div>
+  </section>
+</main>
+
+<!-- ============ PLAYERS TAB ============ -->
+<main id="view-players" class="hidden">
+  <section class="card">
+    <h2>Player Profiles</h2>
+    <form id="add-profile" class="add-form">
+      <input id="new-player-name" type="text" placeholder="Player name" maxlength="20">
+      <button class="btn primary" type="submit">Add</button>
+    </form>
+    <div id="profile-list"></div>
+    <p class="hint">A player&rsquo;s rating is their average board points per round
+    (12 discs) over their last 30 recorded rounds. After 4 rounds the rating is
+    established and can power handicap matches: the lower-rated side is spotted the
+    rating difference as bonus points every round. Assign profiles to sides when
+    starting a game to build history &mdash; in doubles, credit is split evenly
+    between partners.</p>
   </section>
 </main>
 
@@ -148,6 +166,19 @@
       6&ndash;2 or 5&ndash;3.</p>
       <p>Every 20 scored is also tallied individually. Total 20s are the standard
       tiebreaker and are used for tournament rankings.</p>
+    </details>
+
+    <details>
+      <summary>Handicap play (this app)</summary>
+      <p>Crokinole has no official handicap system, so this app uses a simple one
+      modelled on golf. Each saved player carries a <strong>rating</strong>: their
+      average board points per round over their most recent 30 rounds. A rating
+      becomes established after 4 recorded rounds.</p>
+      <p>In a handicap match, the side with the lower rating (in doubles, the average
+      of the partners&rsquo; ratings) is <strong>spotted the rating difference as
+      bonus points every round</strong>, added to its board total before the round is
+      scored. An evenly-rated match spots nothing. Player stats always record the
+      real board points, never the bonus.</p>
     </details>
 
     <details>

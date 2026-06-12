@@ -157,6 +157,67 @@ h3 { margin-top: 0; color: var(--muted); font-size: 0.95rem; text-transform: upp
 .rules p { line-height: 1.55; color: var(--text); }
 .rules strong { color: var(--wood); }
 
+/* ---- player pickers (setup) ---- */
+.side-pick {
+  border: 1px solid var(--card-edge);
+  border-radius: 10px;
+  padding: 10px 12px 4px;
+  margin: 0 0 14px;
+}
+.side-pick legend { color: var(--muted); font-size: 0.85rem; padding: 0 6px; }
+.side-pick select, .side-pick input {
+  display: block;
+  width: 100%;
+  margin-bottom: 10px;
+  padding: 12px;
+  font-size: 1.05rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--card-edge);
+  border-radius: 10px;
+}
+
+/* ---- handicap row ---- */
+#handicap-row { margin-bottom: 14px; }
+.check { display: flex; align-items: center; gap: 10px; font-size: 1rem; }
+.check input { width: 22px; height: 22px; accent-color: var(--wood-deep); }
+.check input:disabled + * , .check:has(input:disabled) { color: var(--muted); }
+.hint { color: var(--muted); font-size: 0.85rem; line-height: 1.5; margin: 8px 0 0; }
+
+/* ---- players tab ---- */
+.add-form { display: flex; gap: 10px; margin-bottom: 16px; }
+.add-form input {
+  flex: 1;
+  padding: 12px;
+  font-size: 1.05rem;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--card-edge);
+  border-radius: 10px;
+}
+.add-form .btn { width: auto; margin: 0; padding: 12px 20px; }
+.profile-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 12px 0;
+  border-bottom: 1px solid var(--card-edge);
+}
+.profile-name { font-weight: 600; font-size: 1.05rem; }
+.profile-stats { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
+.del-profile {
+  background: none;
+  border: 1px solid var(--red);
+  color: var(--red);
+  border-radius: 8px;
+  width: 36px;
+  height: 36px;
+  font-size: 1rem;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+
 @media (max-width: 380px) {
   .counter button { width: 36px; height: 36px; }
 }

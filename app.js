@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "v12"; // keep in step with CACHE in sw.js
+const APP_VERSION = "v13"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
 const HISTORY_KEY = "crokinole-history-v1";
@@ -761,7 +761,10 @@ function renderPlayers() {
                 <div class="profile-stats">${stat} · ${n} rounds · ${wins}W–${losses}L · ${tw} twenties/round</div>
                 ${badges ? `<div class="profile-badges">${badges}</div>` : ""}
               </div>
-              <button class="del-profile" aria-label="delete player">✕</button>
+              <div class="profile-actions">
+                <button class="rename-profile" aria-label="rename player">✎</button>
+                <button class="del-profile" aria-label="delete player">✕</button>
+              </div>
             </div>`;
           })
           .join("");
@@ -812,16 +815,37 @@ $("add-profile").addEventListener("submit", (e) => {
 });
 
 $("profile-list").addEventListener("click", (e) => {
-  if (!e.target.classList.contains("del-profile")) return;
-  const id = e.target.closest(".profile-row").dataset.id;
-  if (!confirm(`Delete ${profiles[id].name} and their history?`)) return;
-  delete profiles[id];
-  saveProfiles();
-  pick = pick.map((row) =>
-    row.map((v) => (v !== "guest" && !profiles[v] ? "guest" : v))
-  );
-  renderPlayers();
-  renderPickers();
+  const row = e.target.closest(".profile-row");
+  if (!row) return;
+  const id = row.dataset.id;
+  if (e.target.classList.contains("rename-profile")) {
+    const name = prompt("Rename player:", profiles[id].name);
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim().slice(0, 20);
+    if (
+      Object.values(profiles).some(
+        (p) => p.id !== id && p.name.toLowerCase() === trimmed.toLowerCase()
+      )
+    ) {
+      alert("A player with that name already exists.");
+      return;
+    }
+    profiles[id].name = trimmed;
+    saveProfiles();
+    renderPlayers();
+    renderPickers();
+    return;
+  }
+  if (e.target.classList.contains("del-profile")) {
+    if (!confirm(`Delete ${profiles[id].name} and their history?`)) return;
+    delete profiles[id];
+    saveProfiles();
+    pick = pick.map((r) =>
+      r.map((v) => (v !== "guest" && !profiles[v] ? "guest" : v))
+    );
+    renderPlayers();
+    renderPickers();
+  }
 });
 
 /* ---------- rendering ---------- */
@@ -1028,7 +1052,7 @@ function renderHistoryTab() {
           return rec.winner === i ? `<strong>${txt}</strong>` : txt;
         })
         .join(" · ");
-      return `<li><span class="log-date">${date}</span> <span class="log-mode">${MODE_LABELS[rec.mode] || rec.mode}${rec.night ? " 🌙" : ""}</span> ${line}</li>`;
+      return `<li data-id="${rec.id}"><span class="log-main"><span class="log-date">${date}</span> <span class="log-mode">${MODE_LABELS[rec.mode] || rec.mode}${rec.night ? " 🌙" : ""}</span> ${line}</span><button class="log-del" aria-label="remove game">✕</button></li>`;
     })
     .join("");
 
@@ -1104,6 +1128,20 @@ function renderH2h() {
 
 $("h2h-a").addEventListener("change", renderH2h);
 $("h2h-b").addEventListener("change", renderH2h);
+
+$("game-log").addEventListener("click", (e) => {
+  if (!e.target.classList.contains("log-del")) return;
+  const id = e.target.closest("li").dataset.id;
+  if (
+    !confirm(
+      "Remove this game from history? Player stats, XP, and badges already earned aren't affected."
+    )
+  )
+    return;
+  history = history.filter((r) => r.id !== id);
+  saveHistory();
+  renderHistoryTab();
+});
 
 /* ---------- game night ---------- */
 function roundRobin(ids) {
@@ -1347,7 +1385,7 @@ $("share-result").addEventListener("click", async () => {
 /* ---------- backup & restore ---------- */
 $("backup-players").addEventListener("click", () => {
   const blob = new Blob(
-    [JSON.stringify({ app: "crokinole-scorer", exported: new Date().toISOString(), profiles }, null, 2)],
+    [JSON.stringify({ app: "crokinole-scorer", exported: new Date().toISOString(), profiles, history }, null, 2)],
     { type: "application/json" }
   );
   const a = document.createElement("a");
@@ -1371,11 +1409,19 @@ $("restore-file").addEventListener("change", async (e) => {
         (p) => p && typeof p.name === "string" && Array.isArray(p.samples)
       );
     if (!valid) throw new Error("bad shape");
+    const hasHistory = Array.isArray(data.history);
     const n = Object.keys(profiles).length;
     const m = Object.keys(incoming).length;
-    if (!confirm(`Replace the ${n} player(s) on this device with the ${m} from the backup?`)) return;
+    const what = hasHistory
+      ? `the ${n} player(s) and ${history.length} archived game(s) on this device with the ${m} player(s) and ${data.history.length} game(s) from the backup`
+      : `the ${n} player(s) on this device with the ${m} from the backup`;
+    if (!confirm(`Replace ${what}?`)) return;
     profiles = incoming;
     saveProfiles();
+    if (hasHistory) {
+      history = data.history;
+      saveHistory();
+    }
     pick = [["guest"], ["guest"], ["guest"]];
     renderPlayers();
     renderPickers();

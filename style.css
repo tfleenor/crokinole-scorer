@@ -283,7 +283,8 @@ h3 { margin-top: 0; color: var(--muted); font-size: 0.95rem; text-transform: upp
 }
 .profile-name { font-weight: 600; font-size: 1.05rem; }
 .profile-stats { color: var(--muted); font-size: 0.85rem; margin-top: 2px; }
-.del-profile {
+.profile-actions { display: flex; flex-direction: column; gap: 8px; flex-shrink: 0; }
+.del-profile, .rename-profile {
   background: none;
   border: 1px solid var(--red);
   color: var(--red);
@@ -294,6 +295,7 @@ h3 { margin-top: 0; color: var(--muted); font-size: 0.95rem; text-transform: upp
   cursor: pointer;
   flex-shrink: 0;
 }
+.rename-profile { border-color: var(--card-edge); color: var(--muted); }
 
 /* ---- badges ---- */
 .profile-badges { margin-top: 6px; font-size: 1.2rem; letter-spacing: 4px; }
@@ -395,10 +397,23 @@ h3 { margin-top: 0; color: var(--muted); font-size: 0.95rem; text-transform: upp
 .record-row span { color: var(--muted); }
 .game-log { margin: 0; padding-left: 4px; list-style: none; }
 .game-log li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
   padding: 8px 0;
   border-bottom: 1px solid var(--card-edge);
   font-size: 0.92rem;
   color: var(--text);
+}
+.log-main { flex: 1; min-width: 0; }
+.log-del {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  padding: 6px;
+  flex-shrink: 0;
 }
 .game-log strong { color: var(--brass); }
 .log-date { color: var(--muted); font-size: 0.8rem; margin-right: 6px; }

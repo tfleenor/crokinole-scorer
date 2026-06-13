@@ -1,4 +1,4 @@
-const CACHE = "crokinole-v9";
+const CACHE = "crokinole-v10";
 const ASSETS = [
   ".",
   "index.html",

@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "v9"; // keep in step with CACHE in sw.js
+const APP_VERSION = "v10"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
 const VALUES = [20, 15, 10, 5];
@@ -12,8 +12,8 @@ let state = loadJSON(STORAGE_KEY);
 let profiles = loadJSON(PROFILES_KEY) || {};
 
 /* setup-screen selections (session only): profile ids or "guest" per slot */
-let pick = [["guest"], ["guest"]];
-let guestNames = [["", ""], ["", ""]];
+let pick = [["guest"], ["guest"], ["guest"]];
+let guestNames = [["", ""], ["", ""], ["", ""]];
 
 function loadJSON(key) {
   try {
@@ -36,7 +36,7 @@ const BADGES = [
   { id: "hat-trick", icon: "🎩", name: "Hat Trick", desc: "Three 20s in a single round." },
   { id: "quad-20", icon: "👁️", name: "20/20 Vision", desc: "Four or more 20s in a single round." },
   { id: "century", icon: "💯", name: "Century Club", desc: "Score 100+ board points in one round." },
-  { id: "shutout", icon: "🦨", name: "Skunked 'Em", desc: "Take a round while holding the other side to zero." },
+  { id: "shutout", icon: "🦨", name: "Skunked 'Em", desc: "Take a round while holding every opponent to zero." },
   { id: "first-win", icon: "🏆", name: "Winner Winner", desc: "Win your first game." },
   { id: "streak-3", icon: "🔥", name: "Heater", desc: "Win three games in a row." },
   { id: "comeback", icon: "🚀", name: "Comeback Kid", desc: "Win a points game after trailing by 30 or more." },
@@ -114,7 +114,8 @@ function checkRoundBadges(pid, i, entry, pts, newly) {
   if (t[20] >= 3) award(pid, "hat-trick", entry, newly);
   if (t[20] >= 4) award(pid, "quad-20", entry, newly);
   if (pts[i] >= 100) award(pid, "century", entry, newly);
-  if (pts[i] > 0 && pts[1 - i] === 0) award(pid, "shutout", entry, newly);
+  const oppMax = Math.max(...pts.filter((_, j) => j !== i));
+  if (pts[i] > 0 && oppMax === 0) award(pid, "shutout", entry, newly);
   const n = p.samples.length;
   if (n >= 25) award(pid, "rounds-25", entry, newly);
   if (n >= 100) award(pid, "rounds-100", entry, newly);
@@ -125,12 +126,12 @@ function checkRoundBadges(pid, i, entry, pts, newly) {
 }
 
 function wonFromBehind(winSide) {
-  if (state.mode === "tournament") return false;
-  let mine = 0, theirs = 0;
+  if (gameScoring() === "rounds") return false;
+  const totals = state.scores.map(() => 0);
   for (const r of state.rounds) {
-    mine += r.awarded[winSide];
-    theirs += r.awarded[1 - winSide];
-    if (theirs - mine >= 30) return true;
+    r.awarded.forEach((a, j) => (totals[j] += a));
+    const best = Math.max(...totals.filter((_, j) => j !== winSide));
+    if (best - totals[winSide] >= 30) return true;
   }
   return false;
 }
@@ -138,7 +139,7 @@ function wonFromBehind(winSide) {
 function awardGameEnd(entry, newly) {
   const winSide = state.winner;
   entry.gameStats = [];
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < state.sides.length; i++) {
     for (const pid of state.sides[i].players) {
       if (pid === "guest" || !profiles[pid]) continue;
       const p = profiles[pid];
@@ -208,21 +209,55 @@ function showTab(which) {
 }
 
 /* ---------- setup ---------- */
+/* player slots per side for each mode */
+function setupSlots() {
+  const m = $("mode").value;
+  if (m === "doubles") return [2, 2];
+  if (m === "twovone") return [2, 1];
+  if (m === "cutthroat") return [1, 1, 1];
+  return [1, 1];
+}
+
+/* discs each player on a side shoots per round: official 6 in doubles and
+   for the 2v1 team (the solo player gets 12), else the setup choice
+   (8 official / 12 home-style) */
+function setupSideDiscs(s) {
+  const m = $("mode").value;
+  if (m === "doubles") return 6;
+  if (m === "twovone") return s === 0 ? 6 : 12;
+  return parseInt($("discs").value, 10) || 8;
+}
+
+function sideLegend(s) {
+  const m = $("mode").value;
+  if (m === "twovone") return s === 0 ? "Team (6 discs each)" : "Solo (12 discs)";
+  if (m === "cutthroat") return `Player ${s + 1}`;
+  return `Side ${s + 1}`;
+}
+
+/* how the match ends: accumulating round points or playing to a target */
+function setupScoring() {
+  const m = $("mode").value;
+  if (m === "tournament") return "rounds";
+  if (m === "cutthroat") return $("cut-scoring").value;
+  return "target";
+}
+
+function refreshSetupFields() {
+  const m = $("mode").value;
+  const scoring = setupScoring();
+  $("cut-scoring-field").classList.toggle("hidden", m !== "cutthroat");
+  $("target-field").classList.toggle("hidden", scoring === "rounds");
+  $("rounds-field").classList.toggle("hidden", scoring !== "rounds");
+  $("discs-field").classList.toggle("hidden", m === "doubles" || m === "twovone");
+}
+
 $("mode").addEventListener("change", () => {
-  const mode = $("mode").value;
-  $("target-field").classList.toggle("hidden", mode === "tournament");
-  $("rounds-field").classList.toggle("hidden", mode !== "tournament");
-  $("discs-field").classList.toggle("hidden", mode === "doubles");
+  refreshSetupFields();
   renderPickers();
 });
-
+$("cut-scoring").addEventListener("change", refreshSetupFields);
 $("discs").addEventListener("change", renderHandicapRow);
-
-/* discs each player shoots per round: official 6 in doubles, else the
-   setup choice (8 official / 12 home-style singles) */
-function discsPerPlayer() {
-  return $("mode").value === "doubles" ? 6 : parseInt($("discs").value, 10) || 8;
-}
 
 $("side-pickers").addEventListener("change", (e) => {
   if (!e.target.classList.contains("picker")) return;
@@ -235,10 +270,6 @@ $("side-pickers").addEventListener("input", (e) => {
   guestNames[e.target.dataset.side][e.target.dataset.slot] = e.target.value;
 });
 
-function slotCount() {
-  return $("mode").value === "doubles" ? 2 : 1;
-}
-
 function ratingTag(p) {
   const r = rating(p);
   if (r === null) return " — new";
@@ -246,16 +277,18 @@ function ratingTag(p) {
 }
 
 function renderPickers() {
-  const slots = slotCount();
+  const slots = setupSlots();
   const list = Object.values(profiles).sort((a, b) =>
     a.name.localeCompare(b.name)
   );
   let html = "";
-  for (let s = 0; s < 2; s++) {
-    pick[s] = pick[s].slice(0, slots);
-    while (pick[s].length < slots) pick[s].push("guest");
-    html += `<fieldset class="side-pick"><legend>Side ${s + 1}</legend>`;
-    for (let k = 0; k < slots; k++) {
+  let playerNo = 0;
+  for (let s = 0; s < slots.length; s++) {
+    pick[s] = pick[s].slice(0, slots[s]);
+    while (pick[s].length < slots[s]) pick[s].push("guest");
+    html += `<fieldset class="side-pick"><legend>${sideLegend(s)}</legend>`;
+    for (let k = 0; k < slots[s]; k++) {
+      playerNo++;
       const sel = pick[s][k];
       html +=
         `<select class="picker" data-side="${s}" data-slot="${k}">` +
@@ -268,7 +301,7 @@ function renderPickers() {
           .join("") +
         `</select>`;
       if (sel === "guest") {
-        html += `<input class="guest-name" data-side="${s}" data-slot="${k}" type="text" maxlength="20" placeholder="${slots > 1 ? `Player ${s * 2 + k + 1} name` : "Player / Team name"}" value="${esc(guestNames[s][k] || "")}">`;
+        html += `<input class="guest-name" data-side="${s}" data-slot="${k}" type="text" maxlength="20" placeholder="Player ${playerNo} name" value="${esc(guestNames[s][k] || "")}">`;
       }
     }
     html += `</fieldset>`;
@@ -278,19 +311,21 @@ function renderPickers() {
 }
 
 function handicapInfo() {
-  const slots = slotCount();
-  const sidePicks = [0, 1].map((s) => pick[s].slice(0, slots));
+  if ($("mode").value === "cutthroat") {
+    return { ok: false, reason: "Handicap isn't available in 3-player cutthroat." };
+  }
+  const slots = setupSlots();
+  const sidePicks = slots.map((n, s) => pick[s].slice(0, n));
   const ids = sidePicks.flat().filter((id) => id !== "guest");
   if (new Set(ids).size !== ids.length) {
     return { ok: false, reason: "The same player can't be on both sides." };
   }
   /* expected board points a side adds per round: each player's per-8-disc
      rating scaled by how many discs they actually shoot */
-  const scale = discsPerPlayer() / 8;
-  const exps = sidePicks.map((row) => {
+  const exps = sidePicks.map((row, s) => {
     const ps = row.map((id) => (id !== "guest" ? profiles[id] : null));
     if (ps.some((p) => !p || !established(p))) return null;
-    return ps.reduce((sum, p) => sum + rating(p), 0) * scale;
+    return ps.reduce((sum, p) => sum + rating(p), 0) * (setupSideDiscs(s) / 8);
   });
   if (exps.some((e) => e === null)) {
     return {
@@ -319,46 +354,54 @@ function renderHandicapRow() {
 function slotName(s, k, slots) {
   const id = pick[s][k];
   if (id !== "guest" && profiles[id]) return profiles[id].name;
-  return (
-    (guestNames[s][k] || "").trim() ||
-    (slots > 1 ? `Player ${s * 2 + k + 1}` : `Player ${s + 1}`)
-  );
+  let playerNo = k + 1;
+  for (let i = 0; i < s; i++) playerNo += slots[i];
+  return (guestNames[s][k] || "").trim() || `Player ${playerNo}`;
 }
 
 $("start").addEventListener("click", () => {
   const mode = $("mode").value;
-  const slots = slotCount();
-  const chosen = [0, 1]
-    .flatMap((s) => pick[s].slice(0, slots))
+  const slots = setupSlots();
+  const chosen = slots
+    .flatMap((n, s) => pick[s].slice(0, n))
     .filter((id) => id !== "guest");
   if (new Set(chosen).size !== chosen.length) {
     alert("The same player can't be picked twice.");
     return;
   }
-  const sides = [0, 1].map((s) => {
-    const players = pick[s].slice(0, slots);
+  const sides = slots.map((n, s) => {
+    const players = pick[s].slice(0, n);
     return {
       name: players.map((_, k) => slotName(s, k, slots)).join(" & "),
       players,
+      discsEach: setupSideDiscs(s),
     };
   });
   const hc = $("use-handicap").checked ? handicapInfo() : null;
   state = {
     mode,
+    scoring: setupScoring(),
     sides,
-    discs: discsPerPlayer(),
     target: parseInt($("target").value, 10),
     totalRounds: parseInt($("totalRounds").value, 10),
     handicap: hc && hc.ok && hc.bonus > 0 ? { to: hc.to, bonus: hc.bonus } : null,
-    scores: [0, 0],
-    twenties: [0, 0],
+    scores: sides.map(() => 0),
+    twenties: sides.map(() => 0),
     rounds: [],
-    tally: [blankTally(), blankTally()],
+    tally: sides.map(() => blankTally()),
     winner: null,
   };
   save();
   render();
 });
+
+/* fallbacks keep games saved by older versions working */
+function gameScoring() {
+  return state.scoring || (state.mode === "tournament" ? "rounds" : "target");
+}
+function sideDiscs(i) {
+  return state.sides[i].discsEach || state.discs || 8;
+}
 
 /* ---------- game actions ---------- */
 $("score-round").addEventListener("click", () => {
@@ -386,29 +429,18 @@ $("score-round").addEventListener("click", () => {
     }
   }
 
-  if (state.mode === "tournament") {
-    if (adj[0] > adj[1]) entry.awarded = [2, 0];
-    else if (adj[1] > adj[0]) entry.awarded = [0, 2];
-    else entry.awarded = [1, 1];
-  } else {
-    const diff = adj[0] - adj[1];
-    if (diff > 0) entry.awarded = [diff, 0];
-    else if (diff < 0) entry.awarded = [0, -diff];
-  }
+  entry.awarded = computeAwards(adj);
 
   /* credit real (unadjusted) board points to profile histories */
-  for (let i = 0; i < 2; i++) {
+  for (let i = 0; i < state.sides.length; i++) {
     const players = state.sides[i].players;
-    const result =
-      state.mode === "tournament"
-        ? entry.awarded[i] === 2 ? "win" : entry.awarded[i] === 1 ? "tie" : "loss"
-        : entry.awarded[i] > 0 ? "win" : entry.awarded[1 - i] > 0 ? "loss" : "tie";
+    const result = roundResult(i, entry.awarded, adj);
     for (const pid of players) {
       if (pid === "guest" || !profiles[pid]) continue;
       const twShare = state.tally[i][20] / players.length;
       profiles[pid].samples.push({
         pts: pts[i] / players.length,
-        discs: state.discs || 8,
+        discs: sideDiscs(i),
         tw: twShare,
       });
       entry.credits.push(pid);
@@ -423,12 +455,12 @@ $("score-round").addEventListener("click", () => {
     }
   }
 
-  state.scores[0] += entry.awarded[0];
-  state.scores[1] += entry.awarded[1];
-  state.twenties[0] += state.tally[0][20];
-  state.twenties[1] += state.tally[1][20];
+  for (let i = 0; i < state.sides.length; i++) {
+    state.scores[i] += entry.awarded[i];
+    state.twenties[i] += state.tally[i][20];
+  }
   state.rounds.push(entry);
-  state.tally = [blankTally(), blankTally()];
+  state.tally = state.sides.map(() => blankTally());
   checkWinner();
   if (state.winner === 0 || state.winner === 1) awardGameEnd(entry, newly);
   saveProfiles();
@@ -457,10 +489,10 @@ $("score-round").addEventListener("click", () => {
 $("undo").addEventListener("click", () => {
   const entry = state.rounds.pop();
   if (!entry) return;
-  state.scores[0] -= entry.awarded[0];
-  state.scores[1] -= entry.awarded[1];
-  state.twenties[0] -= entry.tally[0][20];
-  state.twenties[1] -= entry.tally[1][20];
+  for (let i = 0; i < state.sides.length; i++) {
+    state.scores[i] -= entry.awarded[i];
+    state.twenties[i] -= entry.tally[i][20];
+  }
   for (const pid of entry.credits || []) profiles[pid]?.samples.pop();
   for (const [pid, dx] of Object.entries(entry.xp || {})) {
     if (profiles[pid]) profiles[pid].xp = (profiles[pid].xp || 0) - dx;
@@ -500,19 +532,57 @@ function boardPoints(t) {
   return VALUES.reduce((sum, v) => sum + v * t[v], 0);
 }
 
-function checkWinner() {
+/* round points awarded per side from the (handicap-adjusted) board totals */
+function computeAwards(adj) {
   if (state.mode === "tournament") {
-    if (state.rounds.length >= state.totalRounds) {
-      if (state.scores[0] !== state.scores[1]) {
-        state.winner = state.scores[0] > state.scores[1] ? 0 : 1;
-      } else if (state.twenties[0] !== state.twenties[1]) {
-        state.winner = state.twenties[0] > state.twenties[1] ? 0 : 1;
-      } else {
-        state.winner = -1; // dead tie
-      }
+    if (adj[0] > adj[1]) return [2, 0];
+    if (adj[1] > adj[0]) return [0, 2];
+    return [1, 1];
+  }
+  if (state.mode === "cutthroat" && gameScoring() === "rounds") {
+    /* match-play: a point per opponent you outscore (2/1/0; ties shake out) */
+    return adj.map((v, i) => adj.filter((w, j) => j !== i && w < v).length);
+  }
+  if (state.mode === "cutthroat") {
+    /* differential: a lone top scorer takes first minus second; ties score 0 */
+    const sorted = [...adj].sort((a, b) => b - a);
+    const lone = adj.filter((v) => v === sorted[0]).length === 1;
+    return adj.map((v) => (lone && v === sorted[0] ? sorted[0] - sorted[1] : 0));
+  }
+  /* two-sided differential (singles, doubles, 2 vs 1) */
+  const diff = adj[0] - adj[1];
+  if (diff > 0) return [diff, 0];
+  if (diff < 0) return [0, -diff];
+  return [0, 0];
+}
+
+function roundResult(i, awarded, adj) {
+  if (state.mode === "tournament") {
+    return awarded[i] === 2 ? "win" : awarded[i] === 1 ? "tie" : "loss";
+  }
+  if (state.mode === "cutthroat" && gameScoring() === "rounds") {
+    if (awarded[i] === adj.length - 1) return "win";
+    return awarded[i] > 0 || adj[i] === Math.max(...adj) ? "tie" : "loss";
+  }
+  if (awarded[i] > 0) return "win";
+  return adj[i] === Math.max(...adj) ? "tie" : "loss";
+}
+
+function checkWinner() {
+  if (gameScoring() === "rounds") {
+    if (state.rounds.length < state.totalRounds) return;
+    const top = Math.max(...state.scores);
+    let leaders = state.scores
+      .map((s, i) => i)
+      .filter((i) => state.scores[i] === top);
+    if (leaders.length > 1) {
+      const topTw = Math.max(...leaders.map((i) => state.twenties[i]));
+      leaders = leaders.filter((i) => state.twenties[i] === topTw);
     }
-  } else if (state.scores[0] >= state.target || state.scores[1] >= state.target) {
-    state.winner = state.scores[0] >= state.target ? 0 : 1;
+    state.winner = leaders.length === 1 ? leaders[0] : -1; // -1: dead tie
+  } else {
+    const i = state.scores.findIndex((s) => s >= state.target);
+    if (i >= 0) state.winner = i;
   }
 }
 
@@ -631,37 +701,41 @@ function render() {
 
   renderScoreboard();
   renderBanner();
-  renderSide(0);
-  renderSide(1);
+  const S = state.sides.length;
+  if ($("tally-area").childElementCount !== S) {
+    $("tally-area").innerHTML = state.sides
+      .map((_, i) => `<div class="card side-card" id="side${i}"></div>`)
+      .join("");
+  }
+  $("tally-area").classList.toggle("three", S === 3);
+  for (let i = 0; i < S; i++) renderSide(i);
   renderHistory();
   $("score-round").classList.toggle("hidden", state.winner !== null);
 }
 
 function renderScoreboard() {
-  const mid =
-    state.mode === "tournament"
-      ? `Round ${Math.min(state.rounds.length + 1, state.totalRounds)} of ${state.totalRounds}`
-      : `to ${state.target}`;
+  const rounds = gameScoring() === "rounds";
+  const mid = rounds
+    ? `Round ${Math.min(state.rounds.length + 1, state.totalRounds)} of ${state.totalRounds}`
+    : `to ${state.target} · round ${state.rounds.length + 1}`;
   const sub = (i) => {
     const parts = [];
     if (state.handicap && state.handicap.to === i)
       parts.push(`+${state.handicap.bonus} hcp/rd`);
     parts.push(`${state.twenties[i]} twenties`);
-    if (state.mode !== "tournament") parts.push(`${state.rounds.length} rounds`);
     return parts.join(" · ");
   };
-  $("scoreboard").innerHTML = `
+  const sidesHtml = state.sides
+    .map(
+      (sd, i) => `
     <div class="side">
-      <div class="name">${esc(state.sides[0].name)}</div>
-      <div class="pts">${state.scores[0]}</div>
-      <div class="sub">${sub(0)}</div>
-    </div>
-    <div class="mid">${mid}</div>
-    <div class="side">
-      <div class="name">${esc(state.sides[1].name)}</div>
-      <div class="pts">${state.scores[1]}</div>
-      <div class="sub">${sub(1)}</div>
-    </div>`;
+      <div class="name">${esc(sd.name)}</div>
+      <div class="pts">${state.scores[i]}</div>
+      <div class="sub">${sub(i)}</div>
+    </div>`
+    )
+    .join("");
+  $("scoreboard").innerHTML = `<div class="sb-sides">${sidesHtml}</div><div class="sb-mid">${mid}</div>`;
 }
 
 function renderBanner() {
@@ -674,10 +748,10 @@ function renderBanner() {
   if (state.winner === -1) {
     b.textContent = "Match tied — even on points and twenties!";
   } else {
+    const sharedTop =
+      state.scores.filter((s) => s === Math.max(...state.scores)).length > 1;
     const note =
-      state.mode === "tournament" && state.scores[0] === state.scores[1]
-        ? " (on twenties)"
-        : "";
+      gameScoring() === "rounds" && sharedTop ? " (on twenties)" : "";
     b.textContent = `${state.sides[state.winner].name} wins${note}! 🏆`;
   }
 }
@@ -705,15 +779,15 @@ function renderHistory() {
     .map((r) => {
       const disp = (i) =>
         r.adj[i] !== r.pts[i] ? `${r.pts[i]}+${r.adj[i] - r.pts[i]}` : `${r.pts[i]}`;
-      const tag =
-        state.mode === "tournament"
-          ? `${r.awarded[0]}–${r.awarded[1]}`
-          : r.awarded[0] > 0
-            ? `+${r.awarded[0]} ${esc(state.sides[0].name)}`
-            : r.awarded[1] > 0
-              ? `+${r.awarded[1]} ${esc(state.sides[1].name)}`
-              : "wash";
-      return `<li>board ${disp(0)}–${disp(1)} → <strong>${tag}</strong></li>`;
+      const board = r.pts.map((_, i) => disp(i)).join("–");
+      let tag;
+      if (gameScoring() === "rounds") {
+        tag = r.awarded.join("–");
+      } else {
+        const w = r.awarded.findIndex((a) => a > 0);
+        tag = w >= 0 ? `+${r.awarded[w]} ${esc(state.sides[w].name)}` : "wash";
+      }
+      return `<li>board ${board} → <strong>${tag}</strong></li>`;
     })
     .join("");
 }
@@ -736,8 +810,8 @@ $("tally-area").addEventListener("click", (e) => {
   const side = parseInt(row.dataset.side, 10);
   const value = row.dataset.value;
   const t = state.tally[side];
-  const sideDiscs = (state.discs || 8) * state.sides[side].players.length;
-  if (btn.classList.contains("inc") && t[value] < sideDiscs) t[value]++;
+  const maxDiscs = sideDiscs(side) * state.sides[side].players.length;
+  if (btn.classList.contains("inc") && t[value] < maxDiscs) t[value]++;
   if (btn.classList.contains("dec") && t[value] > 0) t[value]--;
   save();
   renderSide(side);
@@ -775,7 +849,7 @@ $("restore-file").addEventListener("change", async (e) => {
     if (!confirm(`Replace the ${n} player(s) on this device with the ${m} from the backup?`)) return;
     profiles = incoming;
     saveProfiles();
-    pick = [["guest"], ["guest"]];
+    pick = [["guest"], ["guest"], ["guest"]];
     renderPlayers();
     renderPickers();
   } catch {

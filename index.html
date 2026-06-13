@@ -33,9 +33,17 @@
         <option value="singles">Singles (2 players, to 100)</option>
         <option value="doubles">Doubles (2 teams, to 100)</option>
         <option value="tournament">Tournament (NCA-style rounds)</option>
+        <option value="twovone">2 vs 1 (team vs. solo)</option>
+        <option value="cutthroat">3 players (cutthroat)</option>
       </select>
     </label>
     <div id="side-pickers"></div>
+    <label class="field hidden" id="cut-scoring-field">Scoring
+      <select id="cut-scoring">
+        <option value="rounds" selected>Match-play (2/1/0 per round)</option>
+        <option value="target">Differential (winner takes margin)</option>
+      </select>
+    </label>
     <label class="field" id="discs-field">Discs per player
       <select id="discs">
         <option value="8" selected>8 (official rules)</option>
@@ -69,10 +77,7 @@
     <div id="scoreboard" class="card scoreboard"></div>
     <div id="winner-banner" class="banner hidden"></div>
 
-    <div id="tally-area">
-      <div class="card side-card" id="side0"></div>
-      <div class="card side-card" id="side1"></div>
-    </div>
+    <div id="tally-area"></div>
 
     <div class="actions">
       <button id="score-round" class="btn primary big">Score Round</button>
@@ -201,6 +206,29 @@
     </details>
 
     <details>
+      <summary>Three-player formats</summary>
+      <p><strong>2 vs 1 (team vs. solo).</strong> Played on a standard board: two
+      teammates sit in opposite quadrants sharing 12 discs (6 each), while the solo
+      player takes a third quadrant with 12 discs of their own colour. The solo
+      player shoots first, then the teammates in turn (solo, teammate A, teammate B,
+      solo&hellip;). Teammates do not count as opponents for the
+      must-touch rule. Standard differential scoring applies: the team&rsquo;s
+      combined board total is compared against the solo player&rsquo;s. Some groups
+      let the solo player shoot <em>after</em> both teammates to offset the
+      team&rsquo;s two-shooter advantage.</p>
+      <p><strong>Cutthroat (3 independent players).</strong> Properly played on a
+      specialized three-quadrant board, but workable on a standard board with house
+      rules. Each player shoots 8&ndash;12 discs of a unique colour, in clockwise
+      turns. Every shot must strike an opponent&rsquo;s disc (either
+      opponent) unless the board is open. Because differential scoring doesn&rsquo;t
+      split three ways cleanly, two scoring styles are common, and this app supports
+      both: <em>match-play</em> &mdash; the round&rsquo;s top scorer gets 2 points,
+      second gets 1, lowest gets 0 (a point per opponent you outscore) &mdash; or
+      <em>differential</em> &mdash; the top scorer alone receives the margin between
+      first and second place.</p>
+    </details>
+
+    <details>
       <summary>Handicap play (this app)</summary>
       <p>Crokinole has no official handicap system, so this app uses a simple one
       modelled on golf. Each saved player carries a <strong>rating</strong>: their
@@ -230,12 +258,16 @@
 
     <details>
       <summary>Features</summary>
-      <p><strong>Three game modes.</strong> Singles and doubles play to a target
+      <p><strong>Five game modes.</strong> Singles and doubles play to a target
       score (50, 100, or 150) using standard differential scoring. Tournament mode
       plays NCA-style matches of 2&ndash;8 rounds: 2 match points for a round win,
-      1 each for a tie, with total 20s as the automatic tiebreaker. Disc counts
-      follow the official rules &mdash; 8 per player in singles, 6 in doubles
-      &mdash; with a 12-disc option for casual singles on home sets.</p>
+      1 each for a tie, with total 20s as the automatic tiebreaker. For three
+      players there&rsquo;s <em>2 vs 1</em> (a team of two, 6 discs each, against a
+      solo shooter with 12) and <em>cutthroat</em> (three independent players,
+      scored either match-play 2/1/0 per round or winner-takes-margin
+      differential). Disc counts follow the official rules &mdash; 8 per player in
+      singles, 6 in doubles &mdash; with a 12-disc option for casual play on home
+      sets.</p>
       <p><strong>Round tally.</strong> Tap counters for each side&rsquo;s 20s, 15s,
       10s, and 5s; the app computes round totals and applies the right scoring for
       the mode. Full round history with undo, and an in-progress game survives

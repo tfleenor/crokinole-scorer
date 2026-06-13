@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "v13"; // keep in step with CACHE in sw.js
+const APP_VERSION = "v14"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
 const HISTORY_KEY = "crokinole-history-v1";
@@ -227,7 +227,7 @@ function sparkline(p) {
 }
 
 /* ---------- tabs ---------- */
-const TABS = ["score", "players", "history", "rules"];
+const TABS = ["score", "play", "players", "history", "rules"];
 TABS.forEach((t) => $("tab-" + t).addEventListener("click", () => showTab(t)));
 
 function showTab(which) {
@@ -237,6 +237,10 @@ function showTab(which) {
   });
   if (which === "players") renderPlayers();
   if (which === "history") renderHistoryTab();
+  if (which === "play") {
+    const f = $("game-frame"); // load the embedded game only on first open
+    if (f && !f.src) f.src = "game/index.html";
+  }
 }
 
 /* ---------- setup ---------- */

@@ -1,0 +1,792 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1b1410">
+<title>Crokinole</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    background: #1b1410;
+    color: #f3ead9;
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+    padding: 12px;
+  }
+  h1 { font-size: 1.3rem; margin: 4px 0 2px; color: #d4a04c; letter-spacing: 1px; }
+  #roundLabel { color: #a8957c; font-size: 0.85rem; margin-bottom: 8px; min-height: 1em; }
+  #soundBtn { position: fixed; top: 6px; right: 10px; z-index: 60; background: none; border: none; font-size: 1.25rem; padding: 4px 8px; cursor: pointer; }
+  #status {
+    width: 100%;
+    max-width: 520px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 8px;
+    font-size: 0.95rem;
+  }
+  .pscore { text-align: center; flex: 1; }
+  .pscore .nm { font-size: 0.8rem; color: #a8957c; }
+  .pscore .sc { font-size: 1.6rem; font-weight: 700; line-height: 1.1; }
+  .pscore.turn { color: #d4a04c; }
+  .pscore.turn .nm { color: #d4a04c; }
+  #mid { font-size: 0.8rem; color: #a8957c; text-align: center; flex: 1; }
+  #wrap { position: relative; width: 100%; max-width: 520px; }
+  canvas { width: 100%; aspect-ratio: 1 / 1; display: block; border-radius: 50%; touch-action: none; }
+  #overlay {
+    position: absolute; inset: 0;
+    display: none;
+    align-items: center; justify-content: center;
+    background: rgba(15,10,6,0.72);
+    border-radius: 50%;
+  }
+  #overlay .card {
+    background: #2a211a; border: 2px solid #d4a04c; border-radius: 16px;
+    padding: 22px 26px; text-align: center;
+  }
+  #overlay h2 { margin: 0 0 6px; color: #d4a04c; }
+  #overlay p { margin: 0 0 16px; color: #a8957c; }
+  button {
+    background: linear-gradient(180deg,#c8924a,#a06a28); color: #fff;
+    border: none; border-radius: 10px; padding: 11px 18px;
+    font-size: 1rem; font-weight: 600; cursor: pointer;
+  }
+  button:active { filter: brightness(1.1); }
+  #help { max-width: 520px; color: #a8957c; font-size: 0.85rem; line-height: 1.5; margin-top: 12px; }
+  #controls { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; justify-content: center; }
+  #newGame, #vsToggle, #diffToggle, #roundsBtn, #recBtn { background: #2a211a; border: 1px solid #3e3024; color: #f3ead9; padding: 10px 13px; font-size: 0.92rem; }
+  #diffToggle { display: none; }
+  #records-modal {
+    position: fixed; inset: 0; z-index: 50; display: none;
+    align-items: center; justify-content: center;
+    background: rgba(15, 10, 6, 0.82); padding: 20px;
+  }
+  .rec-card { background: #2a211a; border: 2px solid #d4a04c; border-radius: 16px; padding: 22px 24px; width: min(92vw, 360px); }
+  .rec-card h2 { margin: 0 0 14px; color: #d4a04c; text-align: center; }
+  .rec-row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; border-bottom: 1px solid #3e3024; font-size: 0.95rem; }
+  .rec-row span { color: #a8957c; }
+  .rec-card button { margin-top: 14px; width: 100%; }
+  .rec-reset { background: none; border: 1px solid #c4553d; color: #c4553d; }
+  #rec-close { background: #2a211a; border: 1px solid #3e3024; color: #f3ead9; }
+  #place { display: none; align-items: center; gap: 10px; width: 100%; max-width: 520px; margin-top: 12px; }
+  #place .parrow { color: #a8957c; font-size: 1.1rem; user-select: none; }
+  #slider { flex: 1; height: 30px; accent-color: #b07a33; }
+</style>
+</head>
+<body>
+  <button id="soundBtn" aria-label="Toggle sound">🔊</button>
+  <h1>CROKINOLE</h1>
+  <div id="roundLabel"></div>
+
+  <div id="status">
+    <div class="pscore" id="p0"><div class="nm">Player 1</div><div class="sc">0</div><div class="dl">8 discs</div></div>
+    <div id="mid">Use the slider to position,<br>then drag the board to flick</div>
+    <div class="pscore" id="p1"><div class="nm">Player 2</div><div class="sc">0</div><div class="dl">8 discs</div></div>
+  </div>
+
+  <div id="wrap">
+    <canvas id="board"></canvas>
+    <div id="overlay"><div class="card">
+      <h2 id="result">—</h2>
+      <p id="resultSub"></p>
+      <button id="again">Play Again</button>
+    </div></div>
+  </div>
+
+  <div id="place">
+    <span class="parrow">◀</span>
+    <input type="range" id="slider" min="0" max="1000" value="500" aria-label="Position disc along your line">
+    <span class="parrow">▶</span>
+  </div>
+
+  <div id="controls">
+    <button id="vsToggle">Mode: 2 Players</button>
+    <button id="diffToggle">Difficulty: Medium</button>
+    <button id="roundsBtn">Rounds: 2</button>
+    <button id="newGame">New Game</button>
+    <button id="recBtn">Records</button>
+  </div>
+
+  <div id="records-modal">
+    <div class="rec-card">
+      <h2>Records</h2>
+      <div id="rec-body"></div>
+      <button id="rec-reset" class="rec-reset">Reset records</button>
+      <button id="rec-close">Close</button>
+    </div>
+  </div>
+
+  <div id="help">
+    <strong>How to play:</strong> Players take turns. On your turn a disc appears
+    at the outer edge of your quadrant — use the <strong>slider</strong> below the board
+    to position it along your line, then <strong>drag anywhere on the board</strong> in
+    the direction you want to shoot (further drag = more power) and release to flick. Land in the centre hole for 20, or score by
+    ring (15 / 10 / 5). Discs knocked into the ditch are out. <strong>If your opponent
+    has a disc on the board you must hit one</strong> (directly or off your own discs)
+    or your shot is removed; on an open board your shot must reach the centre 20 zone.
+    Highest total after all discs are played wins.
+  </div>
+
+<script>
+(function () {
+  "use strict";
+  const canvas = document.getElementById("board");
+  const ctx = canvas.getContext("2d");
+
+  // Fixed logical coordinate space; CSS scales the element responsively.
+  const W = 520;
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = W * dpr;
+  canvas.height = W * dpr;
+  ctx.scale(dpr, dpr);
+
+  // ---- geometry ----
+  const cx = W / 2, cy = W / 2;
+  const R = W * 0.46;            // outer playing edge (rim); beyond = ditch
+  const ditchR = W * 0.49;
+  const line15 = R * 0.30;
+  const line10 = R * 0.55;
+  const holeR = R * 0.07;        // disc centre within this (and slow) = 20
+  const discR = R * 0.05;
+  const pegR = R * 0.02;
+  const pegOrbit = R * 0.33;
+  const PEGS = [];
+  for (let i = 0; i < 8; i++) {
+    const a = (i * 45 + 22.5) * Math.PI / 180;
+    PEGS.push({ x: cx + pegOrbit * Math.cos(a), y: cy + pegOrbit * Math.sin(a) });
+  }
+
+  // ---- tuning ----
+  const DISCS_PER_PLAYER = 8;
+  const FRICTION = 0.985;
+  const STOP = 0.05;
+  const SINK = R * 0.012;        // disc must be nearly settled to drop in
+  const DROP_R = R * 0.03;       // and nearly centred over the hole (precision)
+  const HOLE_FRICTION = 0.95;    // a little extra drag over the hole (forgiveness)
+  const REST_DISC = 0.9;
+  const REST_PEG = 0.55;
+  const SUBSTEPS = 6;
+  const MAX_DRAG = R;
+  const MAX_SPEED = R * 0.065;
+  const COLORS = ["#e8c189", "#3a2b1d"]; // P1 natural, P2 dark
+  const EDGE = ["#9c6a2e", "#1a120b"];
+  const START_R = R - discR - 1;     // disc starts against the outer edge
+  // each player's shooting quadrant: centre angle + the arc the disc can slide along
+  const QUAD = [
+    { c: Math.PI / 2, lo: Math.PI * 0.25, hi: Math.PI * 0.75 },     // P1 bottom
+    { c: -Math.PI / 2, lo: -Math.PI * 0.75, hi: -Math.PI * 0.25 },  // P2 top
+  ];
+
+  // ---- state ----
+  let discs = [];          // {x,y,vx,vy,player,flicked}
+  let sunk = [0, 0];
+  let left = [0, 0];
+  let turn = 0;
+  let phase = "aim";       // "aim" | "sim" | "over"
+  let active = null;       // the disc awaiting a flick
+  let aim = null;          // {x,y} current pointer while dragging
+  let shot = null;         // per-shot tracking for the must-hit rule
+  let lastFoul = null;     // reason string of the most recent foul (or null)
+  let msgTimer = null;
+  let vsCPU = false;       // is Player 2 the computer?
+  let aiLevel = "Medium";
+  const AI_ORDER = ["Easy", "Medium", "Hard"];
+  const AI_LEVELS = {       // ang/pow = jitter spread (bigger = less accurate)
+    Easy: { ang: 0.24, pow: 0.36 },
+    Medium: { ang: 0.10, pow: 0.16 },
+    Hard: { ang: 0.035, pow: 0.07 },
+  };
+  const MID_DEFAULT = "Use the slider to position,<br>then drag the board to flick";
+  const STATS_KEY = "crok-game-stats-v1";
+  let stats = loadStats();
+  // multi-round match
+  let matchRounds = 2;
+  let round = 1;
+  let matchScore = [0, 0];
+  let firstPlayer = 0;
+  const ROUND_OPTS = [1, 2, 4];
+  // sound + effects
+  let soundOn = localStorage.getItem("crok-game-sound") !== "off";
+  let actx = null;
+  let lastClack = 0;
+  let effects = [];      // transient visuals like the "20!" flash
+
+  function newGame() {
+    discs = [];
+    sunk = [0, 0];
+    left = [DISCS_PER_PLAYER, DISCS_PER_PLAYER];
+    matchScore = [0, 0];
+    round = 1;
+    firstPlayer = 0;
+    turn = 0;
+    effects = [];
+    phase = "aim";
+    document.getElementById("overlay").style.display = "none";
+    document.getElementById("mid").innerHTML = MID_DEFAULT;
+    document.querySelector("#p1 .nm").textContent = vsCPU ? "Computer" : "Player 2";
+    spawnActive();
+    updateHud();
+  }
+
+  // End of a round: fold its scores into the match and start the next, or finish.
+  function endRoundOrMatch() {
+    if (round < matchRounds) {
+      matchScore[0] += scoreOf(0);
+      matchScore[1] += scoreOf(1);
+      stats.most20s = Math.max(stats.most20s, sunk[0], sunk[1]); saveStats();
+      round++;
+      firstPlayer = 1 - firstPlayer;
+      turn = firstPlayer;
+      left = [DISCS_PER_PLAYER, DISCS_PER_PLAYER];
+      sunk = [0, 0];
+      discs = [];
+      spawnActive();
+      updateHud();
+    } else {
+      endGame();
+    }
+  }
+
+  function spawnActive() {
+    if (left[turn] <= 0) { endGame(); return; }
+    const a = QUAD[turn].c;
+    active = { x: cx + START_R * Math.cos(a), y: cy + START_R * Math.sin(a), vx: 0, vy: 0, player: turn, flicked: false };
+    discs.push(active);
+    phase = "aim";
+    document.getElementById("slider").value = 500;   // disc starts centred in the quadrant
+    if (vsCPU && turn === 1) {
+      document.getElementById("mid").innerHTML = "Computer is lining up…";
+      setTimeout(aiMove, 850);
+    } else {
+      document.getElementById("mid").innerHTML = MID_DEFAULT;
+    }
+  }
+
+  // Computer opponent: go for the 20 on an open board, otherwise hit a disc.
+  function aiMove() {
+    if (!vsCPU || turn !== 1 || phase !== "aim" || !active) return;
+    const opp = 1 - turn;
+    const oppDiscs = discs.filter((d) => d !== active && d.player === opp);
+    let tx, ty, power;
+    if (oppDiscs.length === 0) {
+      tx = cx; ty = cy;                                  // open board: attack the 20
+      power = dist(active.x, active.y, cx, cy) * 0.018 + 0.3;
+    } else {
+      let best = oppDiscs[0], bestVal = -1;              // prefer the disc nearest centre
+      for (const d of oppDiscs) {
+        const v = 1 / (dist(d.x, d.y, cx, cy) + 1);
+        if (v > bestVal) { bestVal = v; best = d; }
+      }
+      tx = best.x; ty = best.y;
+      power = dist(active.x, active.y, tx, ty) * 0.018 + 2.2;  // hit hard enough to clear it
+    }
+    const lv = AI_LEVELS[aiLevel];
+    let ang = Math.atan2(ty - active.y, tx - active.x);
+    ang += (Math.random() - 0.5) * lv.ang;               // aim jitter (scales with difficulty)
+    power *= (1 - lv.pow / 2) + Math.random() * lv.pow;  // power jitter (scales with difficulty)
+    power = Math.min(power, MAX_SPEED);
+    flick(Math.cos(ang) * power, Math.sin(ang) * power);
+  }
+
+  // Launch the active disc and start tracking the shot for the must-hit rule.
+  function flick(vx, vy) {
+    if (!active) return;
+    const shooter = active;
+    shooter.vx = vx; shooter.vy = vy; shooter.flicked = true;
+    const opp = 1 - turn;
+    shot = {
+      shooter: shooter,
+      player: turn,
+      oppHad: discs.some((d) => d !== shooter && d.player === opp),
+      pre: new Map(),
+      oppContacted: false,
+      shooterSunk: false,
+      ownSunk: 0,
+    };
+    for (const d of discs) shot.pre.set(d, { x: d.x, y: d.y });
+    left[turn]--;
+    active = null;
+    phase = "sim";
+    sFlick();
+    buzz(10);
+    updateHud();
+  }
+
+  function dist(ax, ay, bx, by) { return Math.hypot(ax - bx, ay - by); }
+  function speed(d) { return Math.hypot(d.vx, d.vy); }
+
+  function ringValue(d) {
+    const r = dist(d.x, d.y, cx, cy);
+    if (r <= line15) return 15;
+    if (r <= line10) return 10;
+    if (r <= R) return 5;
+    return 0;
+  }
+
+  function scoreOf(p) {
+    let s = sunk[p] * 20;
+    for (const d of discs) if (d.player === p && d.flicked) s += ringValue(d);
+    return s;
+  }
+
+  // ---- physics ----
+  function step() {
+    const sub = SUBSTEPS;
+    for (let s = 0; s < sub; s++) {
+      for (const d of discs) {
+        if (d === active && !d.flicked) continue;
+        d.x += d.vx / sub;
+        d.y += d.vy / sub;
+      }
+      // disc-disc
+      for (let i = 0; i < discs.length; i++) {
+        for (let j = i + 1; j < discs.length; j++) {
+          collideDiscs(discs[i], discs[j]);
+        }
+      }
+      // disc-peg
+      for (const d of discs) {
+        if (d === active && !d.flicked) continue;
+        for (const p of PEGS) collidePeg(d, p);
+      }
+    }
+    // friction + settle + removal
+    for (const d of discs) {
+      if (d === active && !d.flicked) continue;
+      d.vx *= FRICTION;
+      d.vy *= FRICTION;
+      // the hole's lip adds a little extra friction, helping a slow disc settle in
+      if (dist(d.x, d.y, cx, cy) < holeR) { d.vx *= HOLE_FRICTION; d.vy *= HOLE_FRICTION; }
+      if (speed(d) < STOP) { d.vx = 0; d.vy = 0; }
+    }
+    // remove sunk 20s and ditched discs
+    for (let i = discs.length - 1; i >= 0; i--) {
+      const d = discs[i];
+      if (d === active && !d.flicked) continue;
+      const r = dist(d.x, d.y, cx, cy);
+      if (r < DROP_R && speed(d) < SINK) {
+        if (shot && d.player === shot.player) {
+          // own 20s are deferred until the foul check (a foul voids them)
+          if (d === shot.shooter) shot.shooterSunk = true; else shot.ownSunk++;
+        } else {
+          sunk[d.player]++;                          // opponent disc potted = legal contact
+          if (shot) shot.oppContacted = true;
+        }
+        addEffect(cx, cy, "20!", "#f0c87a"); sSink(); buzz(25);
+        discs.splice(i, 1); continue;
+      }
+      if (r > R + discR * 0.5) {                     // into the ditch (scores nothing)
+        if (shot && d !== shot.shooter && d.player !== shot.player) shot.oppContacted = true;
+        discs.splice(i, 1); continue;
+      }
+    }
+    // settled?
+    let moving = false;
+    for (const d of discs) { if (d !== active && speed(d) > 0) { moving = true; break; } }
+    if (!moving) afterSettle();
+  }
+
+  function collideDiscs(a, b) {
+    if ((a === active && !a.flicked) || (b === active && !b.flicked)) return;
+    const dx = b.x - a.x, dy = b.y - a.y;
+    let d = Math.hypot(dx, dy);
+    const min = discR * 2;
+    if (d === 0) { d = 0.01; }
+    if (d >= min) return;
+    const nx = dx / d, ny = dy / d;
+    const overlap = min - d;
+    a.x -= nx * overlap / 2; a.y -= ny * overlap / 2;
+    b.x += nx * overlap / 2; b.y += ny * overlap / 2;
+    const rvx = a.vx - b.vx, rvy = a.vy - b.vy;
+    const vn = rvx * nx + rvy * ny;
+    if (vn <= 0) return;
+    const imp = (1 + REST_DISC) * vn / 2;
+    a.vx -= imp * nx; a.vy -= imp * ny;
+    b.vx += imp * nx; b.vy += imp * ny;
+    if (vn > 1.5) sDisc();
+  }
+
+  function collidePeg(d, p) {
+    const dx = d.x - p.x, dy = d.y - p.y;
+    let dd = Math.hypot(dx, dy);
+    const min = discR + pegR;
+    if (dd >= min) return;
+    if (dd === 0) dd = 0.01;
+    const nx = dx / dd, ny = dy / dd;
+    d.x = p.x + nx * min; d.y = p.y + ny * min;
+    const vn = d.vx * nx + d.vy * ny;
+    if (vn < 0) {
+      d.vx -= (1 + REST_PEG) * vn * nx;
+      d.vy -= (1 + REST_PEG) * vn * ny;
+      if (vn < -1.5) sPeg();
+    }
+  }
+
+  // Enforce the must-hit rule once the discs have come to rest.
+  function resolveShot() {
+    if (!shot) return;
+    const s = shot; shot = null;
+    lastFoul = null;
+
+    // contact = an opponent disc moved or was removed by the shot
+    let oppContacted = s.oppContacted;
+    if (!oppContacted) {
+      for (const d of discs) {
+        if (d.player !== s.player) {
+          const p0 = s.pre.get(d);
+          if (p0 && Math.hypot(d.x - p0.x, d.y - p0.y) > 0.5) { oppContacted = true; break; }
+        }
+      }
+    }
+
+    let foul = false, reason = "";
+    if (s.oppHad) {
+      if (!oppContacted) { foul = true; reason = "must hit an opponent disc"; }
+    } else if (!s.shooterSunk) {
+      // open board: the shot must reach (touch) the 15 circle, or sink the 20
+      const onBoard = discs.indexOf(s.shooter) >= 0;
+      if (!onBoard) { foul = true; reason = "must reach the 20 zone"; }
+      else if (dist(s.shooter.x, s.shooter.y, cx, cy) - discR > line15) {
+        foul = true; reason = "must reach the 20 zone";
+      }
+    }
+
+    if (!foul) {
+      if (s.shooterSunk) sunk[s.player]++;           // count deferred own 20s
+      sunk[s.player] += s.ownSunk;
+    } else {
+      const idx = discs.indexOf(s.shooter);
+      if (idx >= 0) discs.splice(idx, 1);            // remove the shooter
+      for (let i = discs.length - 1; i >= 0; i--) {  // and any own discs it moved
+        const d = discs[i];
+        if (d.player === s.player) {
+          const p0 = s.pre.get(d);
+          if (p0 && Math.hypot(d.x - p0.x, d.y - p0.y) > 0.5) discs.splice(i, 1);
+        }
+      }
+      lastFoul = reason;
+      flashMessage("Foul — " + reason);
+    }
+    updateHud();
+  }
+
+  function flashMessage(txt) {
+    const mid = document.getElementById("mid");
+    mid.innerHTML = '<span style="color:#e0856a">' + txt + "</span>";
+    clearTimeout(msgTimer);
+    msgTimer = setTimeout(function () {
+      mid.innerHTML = MID_DEFAULT;
+    }, 2800);
+  }
+
+  function afterSettle() {
+    resolveShot();
+    const other = 1 - turn;
+    if (left[other] > 0) turn = other;
+    else if (left[turn] > 0) { /* same player continues */ }
+    else { endRoundOrMatch(); return; }
+    spawnActive();
+    updateHud();
+  }
+
+  function endGame() {
+    if (phase === "over") return;
+    phase = "over";
+    active = null;
+    const s0 = totalScore(0), s1 = totalScore(1);
+    recordStats(s0, s1);
+    if (s0 !== s1) sWin();
+    const res = document.getElementById("result");
+    const sub = document.getElementById("resultSub");
+    const nm = (i) => (i === 1 && vsCPU) ? "Computer" : "Player " + (i + 1);
+    if (s0 === s1) res.textContent = "It's a tie!";
+    else res.textContent = nm(s0 > s1 ? 0 : 1) + " wins!";
+    let line = "Player 1 " + s0 + "  –  " + s1 + "  " + (vsCPU ? "Computer" : "Player 2");
+    if (vsCPU && s0 > s1 && stats.streak > 1) line += "  ·  streak " + stats.streak;
+    sub.textContent = line;
+    document.getElementById("overlay").style.display = "flex";
+    updateHud();
+  }
+
+  // ---------- records (stored on this device) ----------
+  function defaultStats() {
+    return {
+      cpu: { Easy: { w: 0, l: 0, t: 0 }, Medium: { w: 0, l: 0, t: 0 }, Hard: { w: 0, l: 0, t: 0 } },
+      twoP: { w0: 0, w1: 0, t: 0 },
+      bestScore: 0, most20s: 0, streak: 0, bestStreak: 0, games: 0,
+    };
+  }
+  function loadStats() {
+    try { const r = localStorage.getItem(STATS_KEY); if (r) return Object.assign(defaultStats(), JSON.parse(r)); } catch (e) {}
+    return defaultStats();
+  }
+  function saveStats() { try { localStorage.setItem(STATS_KEY, JSON.stringify(stats)); } catch (e) {} }
+  function recordStats(s0, s1) {
+    stats.games++;
+    stats.bestScore = Math.max(stats.bestScore, s0, s1);
+    stats.most20s = Math.max(stats.most20s, sunk[0], sunk[1]);
+    const winner = s0 === s1 ? -1 : (s0 > s1 ? 0 : 1);
+    if (vsCPU) {
+      const c = stats.cpu[aiLevel];
+      if (winner === 0) { c.w++; stats.streak++; stats.bestStreak = Math.max(stats.bestStreak, stats.streak); }
+      else if (winner === 1) { c.l++; stats.streak = 0; }
+      else c.t++;
+    } else {
+      if (winner === 0) stats.twoP.w0++;
+      else if (winner === 1) stats.twoP.w1++;
+      else stats.twoP.t++;
+    }
+    saveStats();
+  }
+  function renderRecords() {
+    const s = stats;
+    const row = (label, val) => '<div class="rec-row"><span>' + label + '</span><strong>' + val + '</strong></div>';
+    const cpuRow = (lvl) => { const c = s.cpu[lvl]; return row("vs Computer · " + lvl, c.w + "–" + c.l + (c.t ? " (" + c.t + "T)" : "")); };
+    let html = cpuRow("Easy") + cpuRow("Medium") + cpuRow("Hard");
+    html += row("Win streak vs Computer", s.streak + " (best " + s.bestStreak + ")");
+    if (s.twoP.w0 || s.twoP.w1 || s.twoP.t) html += row("2-player · P1–P2", s.twoP.w0 + "–" + s.twoP.w1 + (s.twoP.t ? " (" + s.twoP.t + "T)" : ""));
+    html += row("Best game score", s.bestScore);
+    html += row("Most 20s in a game", s.most20s);
+    html += row("Games played", s.games);
+    document.getElementById("rec-body").innerHTML = html;
+  }
+
+  // ---- sound + haptics ----
+  function tone(freq, dur, type, vol, delay) {
+    if (!soundOn) return;
+    try {
+      if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+      if (actx.state === "suspended") actx.resume();
+      const t = actx.currentTime + (delay || 0);
+      const o = actx.createOscillator(), g = actx.createGain();
+      o.type = type || "triangle"; o.frequency.value = freq;
+      g.gain.setValueAtTime(vol || 0.04, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+      o.connect(g); g.connect(actx.destination);
+      o.start(t); o.stop(t + dur + 0.03);
+    } catch (e) {}
+  }
+  const sFlick = () => tone(1150, 0.05, "square", 0.03);
+  function sPeg() { const n = performance.now(); if (n - lastClack < 35) return; lastClack = n; tone(620, 0.05, "square", 0.035); }
+  function sDisc() { const n = performance.now(); if (n - lastClack < 35) return; lastClack = n; tone(300, 0.05, "triangle", 0.045); }
+  function sSink() { tone(880, 0.12, "triangle", 0.05); tone(1320, 0.2, "triangle", 0.05, 0.09); }
+  function sWin() { [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.28, "triangle", 0.06, i * 0.12)); }
+  function buzz(ms) { if (navigator.vibrate) { try { navigator.vibrate(ms); } catch (e) {} } }
+  function addEffect(x, y, text, color) { effects.push({ x: x, y: y, text: text, color: color, t0: performance.now() }); }
+
+  // ---- HUD ----
+  function totalScore(p) { return matchScore[p] + scoreOf(p); }
+  function updateHud() {
+    document.querySelector("#p0 .sc").textContent = totalScore(0);
+    document.querySelector("#p1 .sc").textContent = totalScore(1);
+    document.querySelector("#p0 .dl").textContent = left[0] + " discs";
+    document.querySelector("#p1 .dl").textContent = left[1] + " discs";
+    document.getElementById("p0").classList.toggle("turn", phase !== "over" && turn === 0);
+    document.getElementById("p1").classList.toggle("turn", phase !== "over" && turn === 1);
+    document.getElementById("roundLabel").textContent =
+      matchRounds > 1 ? "Round " + Math.min(round, matchRounds) + " of " + matchRounds : "";
+    const human = phase === "aim" && active && !(vsCPU && turn === 1);
+    document.getElementById("place").style.display = human ? "flex" : "none";
+  }
+
+  // ---- rendering ----
+  function draw() {
+    ctx.clearRect(0, 0, W, W);
+    // ditch
+    ctx.fillStyle = "#2a1c10";
+    ctx.beginPath(); ctx.arc(cx, cy, ditchR, 0, 7); ctx.fill();
+    // board
+    ctx.fillStyle = "#d2a05c";
+    ctx.beginPath(); ctx.arc(cx, cy, R, 0, 7); ctx.fill();
+    // rings
+    ctx.strokeStyle = "rgba(90,55,25,0.55)"; ctx.lineWidth = 2;
+    for (const rr of [R, line10, line15]) { ctx.beginPath(); ctx.arc(cx, cy, rr, 0, 7); ctx.stroke(); }
+    // quadrant dividing lines: from the 15 circle out to the rim, at the diagonals
+    ctx.beginPath();
+    for (const a of [Math.PI * 0.25, Math.PI * 0.75, Math.PI * 1.25, Math.PI * 1.75]) {
+      ctx.moveTo(cx + line15 * Math.cos(a), cy + line15 * Math.sin(a));
+      ctx.lineTo(cx + R * Math.cos(a), cy + R * Math.sin(a));
+    }
+    ctx.stroke();
+    // centre hole
+    ctx.fillStyle = "#28180c";
+    ctx.beginPath(); ctx.arc(cx, cy, holeR, 0, 7); ctx.fill();
+    // pegs
+    ctx.fillStyle = "#3a2410";
+    for (const p of PEGS) { ctx.beginPath(); ctx.arc(p.x, p.y, pegR, 0, 7); ctx.fill(); }
+    // discs
+    for (const d of discs) {
+      // motion trail for fast discs (faint ghosts behind the velocity)
+      const sp = Math.hypot(d.vx, d.vy);
+      if (sp > 2.5) {
+        for (let k = 1; k <= 2; k++) {
+          ctx.globalAlpha = 0.13 / k;
+          ctx.fillStyle = COLORS[d.player];
+          ctx.beginPath(); ctx.arc(d.x - d.vx * k * 0.6, d.y - d.vy * k * 0.6, discR, 0, 7); ctx.fill();
+        }
+        ctx.globalAlpha = 1;
+      }
+      const grad = ctx.createRadialGradient(d.x - discR * 0.3, d.y - discR * 0.3, discR * 0.2, d.x, d.y, discR);
+      grad.addColorStop(0, COLORS[d.player]);
+      grad.addColorStop(1, EDGE[d.player]);
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(d.x, d.y, discR, 0, 7); ctx.fill();
+      ctx.strokeStyle = "rgba(0,0,0,0.35)"; ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(d.x, d.y, discR, 0, 7); ctx.stroke();
+    }
+    // transient effects (e.g. the "20!" flash) — float up and fade
+    const now = performance.now();
+    for (let i = effects.length - 1; i >= 0; i--) {
+      const e = effects[i], age = (now - e.t0) / 800;
+      if (age >= 1) { effects.splice(i, 1); continue; }
+      ctx.globalAlpha = 1 - age;
+      ctx.fillStyle = e.color;
+      ctx.font = "bold " + (discR * (1.6 + age)) + "px system-ui, sans-serif";
+      ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillText(e.text, e.x, e.y - age * 34);
+      ctx.globalAlpha = 1;
+    }
+    // placement arc: the range the slider can position the disc along
+    if (phase === "aim" && active && !(vsCPU && turn === 1)) {
+      const q = QUAD[turn];
+      ctx.strokeStyle = "rgba(255,255,255,0.2)";
+      ctx.lineWidth = 2;
+      ctx.setLineDash([4, 6]);
+      ctx.beginPath(); ctx.arc(cx, cy, START_R, q.lo, q.hi); ctx.stroke();
+      ctx.setLineDash([]);
+    }
+    // aim guide
+    if (phase === "aim" && aim && active) {
+      const dx = aim.x - active.x, dy = aim.y - active.y;
+      const len = Math.min(Math.hypot(dx, dy), MAX_DRAG);
+      const ang = Math.atan2(dy, dx);
+      const ex = active.x + Math.cos(ang) * len;
+      const ey = active.y + Math.sin(ang) * len;
+      ctx.strokeStyle = "rgba(255,255,255,0.5)";
+      ctx.lineWidth = 3;
+      ctx.setLineDash([6, 6]);
+      ctx.beginPath(); ctx.moveTo(active.x, active.y); ctx.lineTo(ex, ey); ctx.stroke();
+      ctx.setLineDash([]);
+      // power ring on the active disc
+      const pow = len / MAX_DRAG;
+      ctx.strokeStyle = pow > 0.85 ? "#c4553d" : "#d4a04c";
+      ctx.lineWidth = 3;
+      ctx.beginPath(); ctx.arc(active.x, active.y, discR + 4, -Math.PI / 2, -Math.PI / 2 + pow * 2 * Math.PI); ctx.stroke();
+    }
+  }
+
+  function loop() {
+    if (phase === "sim") step();
+    draw();
+    requestAnimationFrame(loop);
+  }
+
+  // ---- input ----
+  function pointFromEvent(e) {
+    const rect = canvas.getBoundingClientRect();
+    return {
+      x: (e.clientX - rect.left) / rect.width * W,
+      y: (e.clientY - rect.top) / rect.height * W,
+    };
+  }
+  // Dragging on the board always aims & flicks; the slider handles positioning.
+  canvas.addEventListener("pointerdown", (e) => {
+    if (phase !== "aim" || !active) return;
+    if (vsCPU && turn === 1) return;          // computer's turn — no human input
+    canvas.setPointerCapture(e.pointerId);
+    aim = pointFromEvent(e);
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (phase !== "aim" || !aim) return;
+    aim = pointFromEvent(e);
+  });
+  canvas.addEventListener("pointerup", (e) => {
+    if (phase !== "aim" || !aim || !active) return;
+    const p = pointFromEvent(e);
+    const dx = p.x - active.x, dy = p.y - active.y;
+    const len = Math.hypot(dx, dy);
+    aim = null;
+    if (len < discR) return; // ignore tiny taps so the disc isn't nudged by accident
+    const pow = Math.min(len, MAX_DRAG) / MAX_DRAG * MAX_SPEED;
+    const ang = Math.atan2(dy, dx);
+    flick(Math.cos(ang) * pow, Math.sin(ang) * pow);
+  });
+
+  // Slider slides the active disc along its quadrant arc (slider right = screen right).
+  document.getElementById("slider").addEventListener("input", function () {
+    if (phase !== "aim" || !active || (vsCPU && turn === 1)) return;
+    const q = QUAD[turn];
+    const right = Math.cos(q.lo) > Math.cos(q.hi) ? q.lo : q.hi;
+    const left = Math.cos(q.lo) > Math.cos(q.hi) ? q.hi : q.lo;
+    const a = left + (this.value / 1000) * (right - left);
+    active.x = cx + START_R * Math.cos(a);
+    active.y = cy + START_R * Math.sin(a);
+  });
+
+  document.getElementById("newGame").addEventListener("click", newGame);
+  document.getElementById("again").addEventListener("click", newGame);
+  document.getElementById("vsToggle").addEventListener("click", function () {
+    vsCPU = !vsCPU;
+    this.textContent = "Mode: " + (vsCPU ? "vs Computer" : "2 Players");
+    document.getElementById("diffToggle").style.display = vsCPU ? "inline-block" : "none";
+    newGame();
+  });
+  document.getElementById("diffToggle").addEventListener("click", function () {
+    aiLevel = AI_ORDER[(AI_ORDER.indexOf(aiLevel) + 1) % AI_ORDER.length];
+    this.textContent = "Difficulty: " + aiLevel;
+  });
+  document.getElementById("roundsBtn").addEventListener("click", function () {
+    matchRounds = ROUND_OPTS[(ROUND_OPTS.indexOf(matchRounds) + 1) % ROUND_OPTS.length];
+    this.textContent = "Rounds: " + matchRounds;
+    newGame();
+  });
+  const soundBtn = document.getElementById("soundBtn");
+  soundBtn.textContent = soundOn ? "🔊" : "🔇";
+  soundBtn.addEventListener("click", function () {
+    soundOn = !soundOn;
+    localStorage.setItem("crok-game-sound", soundOn ? "on" : "off");
+    this.textContent = soundOn ? "🔊" : "🔇";
+    if (soundOn) sSink();   // little confirmation blip
+  });
+  document.getElementById("recBtn").addEventListener("click", function () {
+    renderRecords();
+    document.getElementById("records-modal").style.display = "flex";
+  });
+  document.getElementById("rec-close").addEventListener("click", function () {
+    document.getElementById("records-modal").style.display = "none";
+  });
+  document.getElementById("rec-reset").addEventListener("click", function () {
+    if (confirm("Reset all records?")) { stats = defaultStats(); saveStats(); renderRecords(); }
+  });
+
+  // test hook (harmless; used for automated render/physics checks)
+  window.crok = {
+    launch(vx, vy) {
+      if (phase !== "aim" || !active) return;
+      flick(vx, vy);
+    },
+    state() { return { phase, turn, left: left.slice(), sunk: sunk.slice(), discs: discs.length, s0: totalScore(0), s1: totalScore(1), round, rounds: matchRounds, match: matchScore.slice(), foul: lastFoul }; },
+    tick(n) { for (let i = 0; i < n && phase === "sim"; i++) step(); }, // deterministic stepping for tests
+    redraw() { draw(); },
+    setMode(b) { vsCPU = b; },
+    setLevel(l) { aiLevel = l; },
+    cpu() { aiMove(); },
+  };
+
+  newGame();
+  loop();
+
+  if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js");
+})();
+</script>
+</body>
+</html>

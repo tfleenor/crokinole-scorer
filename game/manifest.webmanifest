@@ -1,0 +1,14 @@
+{
+  "name": "Crokinole Game",
+  "short_name": "Crokinole",
+  "description": "A simple playable crokinole board game — flick discs, sink 20s, knock your opponent into the ditch.",
+  "start_url": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1b1410",
+  "theme_color": "#1b1410",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}

@@ -46,8 +46,8 @@ body {
   top: 0;
   z-index: 10;
 }
-.topbar h1 { font-family: var(--display); font-size: 1.3rem; margin: 0; color: var(--brass); letter-spacing: 0.5px; }
-.topbar nav { display: flex; gap: 2px; }
+.topbar h1 { font-family: var(--display); font-size: 1.3rem; margin: 0; color: var(--brass); letter-spacing: 0.5px; white-space: nowrap; }
+.topbar nav { display: flex; gap: 2px; overflow-x: auto; }
 .tab {
   background: none;
   border: none;
@@ -58,14 +58,20 @@ body {
   cursor: pointer;
   white-space: nowrap;
 }
-@media (max-width: 400px) {
-  .topbar h1 { font-size: 1.05rem; }
-  .tab { font-size: 0.85rem; padding: 7px 7px; }
+@media (max-width: 500px) {
+  .topbar { padding: 12px 8px; }
+  .topbar h1 { font-size: 0.9rem; letter-spacing: 0; }
+  .topbar nav { gap: 0; }
+  .tab { font-size: 0.78rem; padding: 7px 5px; }
 }
 .tab.active { color: var(--bg); background: linear-gradient(180deg, var(--brass), var(--wood-deep)); font-weight: 600; }
 
 /* ---- cards & layout ---- */
 main { max-width: 520px; margin: 0 auto; padding: 14px; animation: view-in 0.22s ease-out; }
+
+/* ---- embedded game (Play tab) ---- */
+#view-play { max-width: 100%; padding: 0; }
+#game-frame { width: 100%; height: calc(100vh - 54px); border: 0; display: block; }
 @keyframes view-in {
   from { opacity: 0; transform: translateY(6px); }
   to { opacity: 1; transform: none; }

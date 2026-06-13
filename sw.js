@@ -1,4 +1,4 @@
-const CACHE = "crokinole-v13";
+const CACHE = "crokinole-v14";
 const ASSETS = [
   ".",
   "index.html",
@@ -8,6 +8,12 @@ const ASSETS = [
   "icon-192.png",
   "icon-512.png",
   "fraunces-600.woff2",
+  // embedded game (Play tab) — cached so it works offline too
+  "game/index.html",
+  "game/sw.js",
+  "game/manifest.webmanifest",
+  "game/icon-192.png",
+  "game/icon-512.png",
 ];
 
 self.addEventListener("install", (e) => {

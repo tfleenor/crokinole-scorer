@@ -16,6 +16,7 @@
   <h1>Crokinole</h1>
   <nav>
     <button id="tab-score" class="tab active">Score</button>
+    <button id="tab-play" class="tab">Play</button>
     <button id="tab-players" class="tab">Players</button>
     <button id="tab-history" class="tab">History</button>
     <button id="tab-rules" class="tab">Rules</button>
@@ -23,6 +24,11 @@
 </header>
 
 <button id="update-banner" class="update-banner hidden">⬆️ Update ready — tap to install &amp; restart</button>
+
+<!-- ============ PLAY TAB (embedded game) ============ -->
+<main id="view-play" class="hidden">
+  <iframe id="game-frame" title="Crokinole game" loading="lazy"></iframe>
+</main>
 
 <!-- ============ SCORE TAB ============ -->
 <main id="view-score">
@@ -302,6 +308,11 @@
 
     <details>
       <summary>Features</summary>
+      <p><strong>Play the game.</strong> The <em>Play</em> tab has a full playable
+      Crokinole board &mdash; flick discs with real physics against a friend or the
+      computer (Easy/Medium/Hard), with the must-hit rule, multi-round matches, and
+      its own win/loss records. It works offline like the rest of the app. (The
+      game keeps its own records separate from your player profiles.)</p>
       <p><strong>Five game modes.</strong> Singles and doubles play to a target
       score (50, 100, or 150) using standard differential scoring. Tournament mode
       plays NCA-style matches of 2&ndash;8 rounds: 2 match points for a round win,

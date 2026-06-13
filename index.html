@@ -17,6 +17,7 @@
   <nav>
     <button id="tab-score" class="tab active">Score</button>
     <button id="tab-players" class="tab">Players</button>
+    <button id="tab-history" class="tab">History</button>
     <button id="tab-rules" class="tab">Rules</button>
   </nav>
 </header>
@@ -25,6 +26,25 @@
 
 <!-- ============ SCORE TAB ============ -->
 <main id="view-score">
+
+  <!-- Game night session card -->
+  <section id="night" class="card hidden"></section>
+
+  <!-- Game night planner -->
+  <section id="night-setup" class="card hidden">
+    <h2>Plan a Game Night</h2>
+    <p class="hint">Pick at least 3 saved players. The app builds round-robin
+    pairings, keeps a standings table, and crowns an evening champion.</p>
+    <div id="night-players"></div>
+    <label class="field">Format
+      <select id="night-format">
+        <option value="rounds" selected>4-round matches (NCA-style)</option>
+        <option value="target">Games to 100</option>
+      </select>
+    </label>
+    <button id="night-go" class="btn primary big">Generate Pairings</button>
+    <button id="night-cancel-setup" class="btn">Back</button>
+  </section>
 
   <!-- Setup screen -->
   <section id="setup" class="card">
@@ -71,6 +91,7 @@
       <p id="handicap-hint" class="hint"></p>
     </div>
     <button id="start" class="btn primary big">Start Game</button>
+    <button id="night-open" class="btn">🌙 Plan a Game Night</button>
   </section>
 
   <!-- Game screen -->
@@ -126,6 +147,28 @@
     rating difference as bonus points every round. Assign profiles to sides when
     starting a game to build history &mdash; in doubles, credit is split evenly
     between partners.</p>
+  </section>
+</main>
+
+<!-- ============ HISTORY TAB ============ -->
+<main id="view-history" class="hidden">
+  <section class="card">
+    <h2>Head to Head</h2>
+    <div class="h2h-row">
+      <select id="h2h-a"></select>
+      <span class="h2h-vs">vs</span>
+      <select id="h2h-b"></select>
+    </div>
+    <p id="h2h-result" class="h2h-result"></p>
+  </section>
+  <section class="card">
+    <h2>Records</h2>
+    <div id="records"></div>
+  </section>
+  <section class="card">
+    <h2>Recent Games</h2>
+    <ol id="game-log" class="game-log"></ol>
+    <p id="game-log-empty" class="hint">Finished games will appear here.</p>
   </section>
 </main>
 
@@ -292,6 +335,21 @@
       way to Crokinole Legend. Each profile shows its level, title, and progress bar,
       and level-ups are celebrated mid-game. The full ladder and XP values are in the
       Players tab.</p>
+      <p><strong>Game history &amp; rivalries.</strong> Every finished game is
+      archived (the most recent 200). The History tab shows lifetime head-to-head
+      records between any two saved players, all-time records (best round, most 20s,
+      biggest win), and a log of recent games. Player profiles also show a rating
+      trend sparkline.</p>
+      <p><strong>Game Night.</strong> Pick 3 or more saved players and the app
+      builds round-robin pairings, launches each game for you, keeps a live
+      standings table (2 points a win, 1 a tie, 20s as tiebreak), and crowns an
+      evening champion.</p>
+      <p><strong>Share results.</strong> The win screen can render a wood-themed
+      score card and send it through your phone&rsquo;s share sheet to the family
+      chat (or download it on a PC).</p>
+      <p><strong>Honest tallies.</strong> The counters won&rsquo;t let a side enter
+      more discs than it actually owns in a round, and each card shows discs used
+      (e.g. 6/8) as you tally.</p>
       <p><strong>Rules reference.</strong> The Rules tab above covers setup,
       shooting, the 20 hole, scoring, tournament play, doubles, and this
       app&rsquo;s handicap system.</p>
@@ -335,6 +393,13 @@
     </details>
 
     <details>
+      <summary>Sound &amp; feedback</summary>
+      <label class="check"><input type="checkbox" id="sound-toggle"> Sound effects</label>
+      <p class="hint">Tally clicks, a chime when a 20 is recorded, and a fanfare on
+      the win screen. Haptic ticks follow your phone&rsquo;s vibration setting.</p>
+    </details>
+
+    <details>
       <summary>Updating the app</summary>
       <p>While you use the app online, it quietly downloads any new version in the
       background. When one is ready, an <strong>Update ready</strong> bar appears at
@@ -356,6 +421,7 @@
     <h2 id="win-title"></h2>
     <p id="win-score"></p>
     <button id="rematch" class="btn primary big">Rematch</button>
+    <button id="share-result" class="btn">Share Result</button>
     <button id="win-close" class="btn">Close</button>
   </div>
 </div>

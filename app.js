@@ -1,8 +1,11 @@
 "use strict";
 
-const APP_VERSION = "v11"; // keep in step with CACHE in sw.js
+const APP_VERSION = "v12"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
+const HISTORY_KEY = "crokinole-history-v1";
+const NIGHT_KEY = "crokinole-night-v1";
+const SOUND_KEY = "crokinole-sound";
 const VALUES = [20, 15, 10, 5];
 const RATING_WINDOW = 30; // recent rounds used for the rating average
 const MIN_ROUNDS = 4; // rounds needed before a rating is established
@@ -10,6 +13,8 @@ const blankTally = () => ({ 20: 0, 15: 0, 10: 0, 5: 0 });
 
 let state = loadJSON(STORAGE_KEY);
 let profiles = loadJSON(PROFILES_KEY) || {};
+let history = loadJSON(HISTORY_KEY) || [];
+let night = loadJSON(NIGHT_KEY);
 
 /* setup-screen selections (session only): profile ids or "guest" per slot */
 let pick = [["guest"], ["guest"], ["guest"]];
@@ -26,6 +31,12 @@ function loadJSON(key) {
 const save = () => localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 const saveProfiles = () =>
   localStorage.setItem(PROFILES_KEY, JSON.stringify(profiles));
+const saveHistory = () =>
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+const saveNight = () =>
+  night === null
+    ? localStorage.removeItem(NIGHT_KEY)
+    : localStorage.setItem(NIGHT_KEY, JSON.stringify(night));
 
 const $ = (id) => document.getElementById(id);
 
@@ -196,8 +207,27 @@ function rating(p) {
 }
 const established = (p) => p.samples.length >= MIN_ROUNDS;
 
+/* tiny SVG of the rating trend over a player's recent rounds */
+function sparkline(p) {
+  const s = p.samples;
+  if (s.length < 3) return "";
+  const pts = [];
+  for (let k = Math.max(2, s.length - 19); k <= s.length; k++) {
+    const win = s.slice(Math.max(0, k - RATING_WINDOW), k);
+    const discs = win.reduce((a, x) => a + x.discs, 0);
+    pts.push(discs ? (win.reduce((a, x) => a + x.pts, 0) / discs) * 8 : 0);
+  }
+  const min = Math.min(...pts);
+  const span = Math.max(...pts) - min || 1;
+  const W = 72, H = 20;
+  const poly = pts
+    .map((v, i) => `${((i / (pts.length - 1)) * W).toFixed(1)},${(H - 2 - ((v - min) / span) * (H - 4)).toFixed(1)}`)
+    .join(" ");
+  return `<svg class="spark" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" aria-label="rating trend"><polyline points="${poly}" fill="none" stroke="#d4a04c" stroke-width="1.5" stroke-linejoin="round"/></svg>`;
+}
+
 /* ---------- tabs ---------- */
-const TABS = ["score", "players", "rules"];
+const TABS = ["score", "players", "history", "rules"];
 TABS.forEach((t) => $("tab-" + t).addEventListener("click", () => showTab(t)));
 
 function showTab(which) {
@@ -206,6 +236,7 @@ function showTab(which) {
     $("tab-" + t).classList.toggle("active", t === which);
   });
   if (which === "players") renderPlayers();
+  if (which === "history") renderHistoryTab();
 }
 
 /* ---------- setup ---------- */
@@ -463,7 +494,11 @@ $("score-round").addEventListener("click", () => {
   state.rounds.push(entry);
   state.tally = state.sides.map(() => blankTally());
   checkWinner();
-  if (state.winner === 0 || state.winner === 1) awardGameEnd(entry, newly);
+  if (state.winner !== null) {
+    if (state.winner >= 0) awardGameEnd(entry, newly);
+    recordGame(entry);
+    if (state.nightGame && night) recordNightResult(entry);
+  }
   saveProfiles();
   save();
   render();
@@ -499,8 +534,13 @@ function showWinOverlay() {
   $("win-score").textContent = state.sides
     .map((sd, i) => `${sd.name} ${state.scores[i]}`)
     .join(" · ");
+  $("rematch").classList.toggle("hidden", !!state.nightGame);
+  $("win-close").textContent = state.nightGame ? "Back to standings" : "Close";
   $("win-overlay").classList.remove("hidden");
-  if (state.winner !== -1) spawnConfetti();
+  if (state.winner !== -1) {
+    spawnConfetti();
+    playFanfare();
+  }
 }
 
 function spawnConfetti() {
@@ -519,9 +559,16 @@ function spawnConfetti() {
   setTimeout(() => (box.innerHTML = ""), 5500);
 }
 
-$("win-close").addEventListener("click", () =>
-  $("win-overlay").classList.add("hidden")
-);
+$("win-close").addEventListener("click", () => {
+  $("win-overlay").classList.add("hidden");
+  if (state && state.nightGame && state.winner !== null) {
+    /* night games archive themselves; return to the standings card */
+    state = null;
+    lastScores = null;
+    localStorage.removeItem(STORAGE_KEY);
+    render();
+  }
+});
 
 $("rematch").addEventListener("click", () => {
   state.scores = state.sides.map(() => 0);
@@ -557,6 +604,16 @@ $("undo").addEventListener("click", () => {
       p.streak = g.streak;
     }
   }
+  if (entry.historyId) {
+    history = history.filter((r) => r.id !== entry.historyId);
+    saveHistory();
+  }
+  if (entry.nightRecorded && night) {
+    night.results.pop();
+    night.current--;
+    night.done = false;
+    saveNight();
+  }
   saveProfiles();
   state.tally = entry.tally;
   state.winner = null;
@@ -580,6 +637,31 @@ $("new-game").addEventListener("click", () => {
 
 function boardPoints(t) {
   return VALUES.reduce((sum, v) => sum + v * t[v], 0);
+}
+
+function tallyDiscs(t) {
+  return VALUES.reduce((sum, v) => sum + t[v], 0);
+}
+
+/* ---------- game history ---------- */
+function recordGame(entry) {
+  const rec = {
+    id: Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+    date: new Date().toISOString(),
+    mode: state.mode,
+    scoring: gameScoring(),
+    night: !!state.nightGame,
+    sides: state.sides.map((sd) => ({ name: sd.name, players: [...sd.players] })),
+    scores: [...state.scores],
+    twenties: [...state.twenties],
+    roundPts: state.rounds.map((r) => r.pts),
+    roundTw: state.rounds.map((r) => r.tally.map((t) => t[20])),
+    winner: state.winner,
+  };
+  history.push(rec);
+  if (history.length > 200) history = history.slice(-200);
+  saveHistory();
+  entry.historyId = rec.id;
 }
 
 /* round points awarded per side from the (handicap-adjusted) board totals */
@@ -674,7 +756,7 @@ function renderPlayers() {
             return `<div class="profile-row" data-id="${p.id}">
               <div class="profile-main">
                 <div class="profile-name">${esc(p.name)}</div>
-                <div class="profile-level"><span class="lv-num">Lv ${lv.n}</span> ${lv.title} · ${xp.toLocaleString()} XP${lv.next ? ` · next at ${lv.next.toLocaleString()}` : " · max level"}</div>
+                <div class="profile-level"><span class="lv-num">Lv ${lv.n}</span> ${lv.title} · ${xp.toLocaleString()} XP${lv.next ? ` · next at ${lv.next.toLocaleString()}` : " · max level"} ${sparkline(p)}</div>
                 <div class="xp-bar"><div class="xp-fill" style="width:${prog}%"></div></div>
                 <div class="profile-stats">${stat} · ${n} rounds · ${wins}W–${losses}L · ${tw} twenties/round</div>
                 ${badges ? `<div class="profile-badges">${badges}</div>` : ""}
@@ -747,7 +829,12 @@ function render() {
   const inGame = state !== null;
   $("setup").classList.toggle("hidden", inGame);
   $("game").classList.toggle("hidden", !inGame);
-  if (!inGame) return;
+  $("night-setup").classList.add("hidden");
+  if (inGame || !night) $("night").classList.add("hidden");
+  if (!inGame) {
+    renderNight();
+    return;
+  }
 
   renderScoreboard();
   renderBanner();
@@ -854,10 +941,13 @@ function renderSide(i) {
       <button class="inc" aria-label="plus">+</button>
     </div>`
   ).join("");
+  const maxDiscs = sideDiscs(i) * state.sides[i].players.length;
+  const used = tallyDiscs(t);
   $("side" + i).innerHTML = `
     <h3>${esc(state.sides[i].name)}</h3>
     ${rows}
-    <div class="round-total">this round<br><strong>${boardPoints(t)}</strong></div>`;
+    <div class="round-total">this round<br><strong>${boardPoints(t)}</strong>
+    <div class="discs-used${used >= maxDiscs ? " full" : ""}">${used}/${maxDiscs} discs</div></div>`;
 }
 
 function renderHistory() {
@@ -898,11 +988,360 @@ $("tally-area").addEventListener("click", (e) => {
   const value = row.dataset.value;
   const t = state.tally[side];
   const maxDiscs = sideDiscs(side) * state.sides[side].players.length;
-  if (btn.classList.contains("inc") && t[value] < maxDiscs) t[value]++;
-  if (btn.classList.contains("dec") && t[value] > 0) t[value]--;
+  if (btn.classList.contains("inc")) {
+    /* a side can never have more discs in play than it owns */
+    if (tallyDiscs(t) >= maxDiscs) return;
+    t[value]++;
+    if (value === "20") playTwentySound();
+    else playClickSound();
+  }
+  if (btn.classList.contains("dec")) {
+    if (t[value] <= 0) return;
+    t[value]--;
+    playClickSound();
+  }
   if (navigator.vibrate) navigator.vibrate(8);
   save();
   renderSide(side);
+});
+
+/* ---------- history tab ---------- */
+const MODE_LABELS = {
+  singles: "Singles",
+  doubles: "Doubles",
+  tournament: "Tournament",
+  twovone: "2 vs 1",
+  cutthroat: "Cutthroat",
+};
+
+function renderHistoryTab() {
+  /* recent games */
+  const recent = [...history].reverse().slice(0, 30);
+  $("game-log-empty").classList.toggle("hidden", recent.length > 0);
+  $("game-log").innerHTML = recent
+    .map((rec) => {
+      const d = new Date(rec.date);
+      const date = `${d.getMonth() + 1}/${d.getDate()}`;
+      const line = rec.sides
+        .map((sd, i) => {
+          const txt = `${esc(sd.name)} ${rec.scores[i]}`;
+          return rec.winner === i ? `<strong>${txt}</strong>` : txt;
+        })
+        .join(" · ");
+      return `<li><span class="log-date">${date}</span> <span class="log-mode">${MODE_LABELS[rec.mode] || rec.mode}${rec.night ? " 🌙" : ""}</span> ${line}</li>`;
+    })
+    .join("");
+
+  /* records */
+  let bestRound = null, mostTw = null, bigWin = null;
+  for (const rec of history) {
+    (rec.roundPts || []).forEach((pts) => {
+      pts.forEach((p, i) => {
+        if (!bestRound || p > bestRound.v) bestRound = { v: p, who: rec.sides[i].name };
+      });
+    });
+    (rec.roundTw || []).forEach((tws) => {
+      tws.forEach((n, i) => {
+        if (!mostTw || n > mostTw.v) mostTw = { v: n, who: rec.sides[i].name };
+      });
+    });
+    if (rec.scoring === "target" && rec.winner >= 0) {
+      const margin = rec.scores[rec.winner] - Math.max(...rec.scores.filter((_, i) => i !== rec.winner));
+      if (!bigWin || margin > bigWin.v) bigWin = { v: margin, who: rec.sides[rec.winner].name };
+    }
+  }
+  const rows = [];
+  if (bestRound && bestRound.v > 0)
+    rows.push(["🔥 Best single round", `${bestRound.v} pts — ${esc(bestRound.who)}`]);
+  if (mostTw && mostTw.v > 0)
+    rows.push(["🎯 Most 20s in a round", `${mostTw.v} — ${esc(mostTw.who)}`]);
+  if (bigWin && bigWin.v > 0)
+    rows.push(["💪 Biggest win margin", `${bigWin.v} pts — ${esc(bigWin.who)}`]);
+  $("records").innerHTML = rows.length
+    ? rows.map(([k, v]) => `<div class="record-row"><span>${k}</span><strong>${v}</strong></div>`).join("")
+    : `<p class="hint">Records appear once games are in the books.</p>`;
+
+  renderH2hSelects();
+  renderH2h();
+}
+
+function renderH2hSelects() {
+  const list = Object.values(profiles).sort((a, b) => a.name.localeCompare(b.name));
+  const opts = (sel) =>
+    `<option value="">— player —</option>` +
+    list
+      .map((p) => `<option value="${p.id}"${sel === p.id ? " selected" : ""}>${esc(p.name)}</option>`)
+      .join("");
+  $("h2h-a").innerHTML = opts($("h2h-a").value);
+  $("h2h-b").innerHTML = opts($("h2h-b").value);
+}
+
+function renderH2h() {
+  const a = $("h2h-a").value;
+  const b = $("h2h-b").value;
+  const out = $("h2h-result");
+  if (!a || !b || a === b) {
+    out.textContent = "Pick two players to see their lifetime rivalry.";
+    return;
+  }
+  let aw = 0, bw = 0, ties = 0;
+  for (const rec of history) {
+    const ia = rec.sides.findIndex((sd) => sd.players.includes(a));
+    const ib = rec.sides.findIndex((sd) => sd.players.includes(b));
+    if (ia < 0 || ib < 0 || ia === ib) continue;
+    if (rec.winner === ia) aw++;
+    else if (rec.winner === ib) bw++;
+    else ties++;
+  }
+  if (aw + bw + ties === 0) {
+    out.textContent = "These two haven't faced off yet.";
+    return;
+  }
+  const an = profiles[a].name, bn = profiles[b].name;
+  out.innerHTML = `<strong>${esc(an)} ${aw} — ${bw} ${esc(bn)}</strong>${ties ? ` (${ties} tied)` : ""}<br>` +
+    `<span class="hint">${aw === bw ? "Dead even rivalry." : `${esc(aw > bw ? an : bn)} leads the series.`}</span>`;
+}
+
+$("h2h-a").addEventListener("change", renderH2h);
+$("h2h-b").addEventListener("change", renderH2h);
+
+/* ---------- game night ---------- */
+function roundRobin(ids) {
+  const arr = [...ids];
+  if (arr.length % 2) arr.push(null);
+  const n = arr.length;
+  const out = [];
+  for (let r = 0; r < n - 1; r++) {
+    for (let k = 0; k < n / 2; k++) {
+      const a = arr[k], b = arr[n - 1 - k];
+      if (a !== null && b !== null) out.push([a, b]);
+    }
+    arr.splice(1, 0, arr.pop());
+  }
+  return out;
+}
+
+$("night-open").addEventListener("click", () => {
+  $("night-players").innerHTML = Object.values(profiles)
+    .sort((a, b) => a.name.localeCompare(b.name))
+    .map(
+      (p) =>
+        `<label class="check night-pick"><input type="checkbox" value="${p.id}"> ${esc(p.name)}</label>`
+    )
+    .join("") || `<p class="hint">No saved players yet — add some in the Players tab first.</p>`;
+  $("setup").classList.add("hidden");
+  $("night-setup").classList.remove("hidden");
+});
+
+$("night-cancel-setup").addEventListener("click", () => {
+  $("night-setup").classList.add("hidden");
+  $("setup").classList.remove("hidden");
+});
+
+$("night-go").addEventListener("click", () => {
+  const ids = Array.from(
+    $("night-players").querySelectorAll("input:checked")
+  ).map((el) => el.value);
+  if (ids.length < 3) {
+    alert("Pick at least 3 players for a game night.");
+    return;
+  }
+  night = {
+    players: ids,
+    format: $("night-format").value,
+    pairings: roundRobin(ids),
+    results: [],
+    current: 0,
+    done: false,
+  };
+  saveNight();
+  $("night-setup").classList.add("hidden");
+  $("setup").classList.remove("hidden");
+  render();
+});
+
+function nightStandings() {
+  const table = {};
+  for (const pid of night.players)
+    table[pid] = { pid, pts: 0, w: 0, l: 0, t: 0, tw: 0 };
+  for (const res of night.results) {
+    const [a, b] = res.pair;
+    table[a].tw += res.twenties[0];
+    table[b].tw += res.twenties[1];
+    if (res.winner === a) { table[a].pts += 2; table[a].w++; table[b].l++; }
+    else if (res.winner === b) { table[b].pts += 2; table[b].w++; table[a].l++; }
+    else { table[a].pts++; table[b].pts++; table[a].t++; table[b].t++; }
+  }
+  return Object.values(table).sort((x, y) => y.pts - x.pts || y.tw - x.tw);
+}
+
+function renderNight() {
+  if (!night) {
+    $("night").classList.add("hidden");
+    return;
+  }
+  $("night").classList.remove("hidden");
+  const name = (pid) => (profiles[pid] ? profiles[pid].name : "?");
+  const standings = nightStandings();
+  const rows = standings
+    .map(
+      (r, i) =>
+        `<tr${night.done && i === 0 ? ' class="champ"' : ""}><td>${night.done && i === 0 ? "👑 " : ""}${esc(name(r.pid))}</td><td>${r.pts}</td><td>${r.w}–${r.l}${r.t ? `–${r.t}` : ""}</td><td>${r.tw}</td></tr>`
+    )
+    .join("");
+  let action;
+  if (night.done) {
+    action = `<p class="night-champ">🏆 ${esc(name(standings[0].pid))} is the night's champion!</p>`;
+  } else {
+    const [a, b] = night.pairings[night.current];
+    action = `<button id="night-play" class="btn primary big">Play game ${night.current + 1} of ${night.pairings.length}: ${esc(name(a))} vs ${esc(name(b))}</button>`;
+  }
+  $("night").innerHTML = `
+    <h2>🌙 Game Night</h2>
+    <table class="standings"><thead><tr><th>Player</th><th>Pts</th><th>W–L</th><th>20s</th></tr></thead>
+    <tbody>${rows}</tbody></table>
+    ${action}
+    <button id="night-end" class="btn danger">End Game Night</button>`;
+  const play = $("night-play");
+  if (play) play.addEventListener("click", startNightGame);
+  $("night-end").addEventListener("click", () => {
+    if (!confirm("End this game night? Standings will be discarded (finished games stay in History).")) return;
+    night = null;
+    saveNight();
+    render();
+  });
+}
+
+function startNightGame() {
+  const [a, b] = night.pairings[night.current];
+  const target = night.format === "target";
+  lastScores = null;
+  state = {
+    mode: target ? "singles" : "tournament",
+    scoring: target ? "target" : "rounds",
+    nightGame: true,
+    sides: [a, b].map((pid) => ({
+      name: profiles[pid] ? profiles[pid].name : "?",
+      players: [pid],
+      discsEach: 8,
+    })),
+    target: 100,
+    totalRounds: 4,
+    handicap: null,
+    scores: [0, 0],
+    twenties: [0, 0],
+    rounds: [],
+    tally: [blankTally(), blankTally()],
+    winner: null,
+  };
+  save();
+  render();
+  showTab("score");
+}
+
+function recordNightResult(entry) {
+  const pair = night.pairings[night.current];
+  night.results.push({
+    pair,
+    scores: [...state.scores],
+    twenties: [...state.twenties],
+    winner: state.winner >= 0 ? pair[state.winner] : null,
+  });
+  night.current++;
+  if (night.current >= night.pairings.length) night.done = true;
+  saveNight();
+  entry.nightRecorded = true;
+}
+
+/* ---------- sounds ---------- */
+let soundOn = localStorage.getItem(SOUND_KEY) !== "off";
+let actx = null;
+
+function tone(freq, dur, delay = 0, type = "triangle", vol = 0.05) {
+  if (!soundOn) return;
+  try {
+    actx = actx || new (window.AudioContext || window.webkitAudioContext)();
+    const t = actx.currentTime + delay;
+    const o = actx.createOscillator();
+    const g = actx.createGain();
+    o.type = type;
+    o.frequency.value = freq;
+    g.gain.setValueAtTime(vol, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g);
+    g.connect(actx.destination);
+    o.start(t);
+    o.stop(t + dur + 0.05);
+  } catch {}
+}
+
+const playClickSound = () => tone(1500, 0.04, 0, "square", 0.02);
+const playTwentySound = () => { tone(880, 0.12); tone(1320, 0.18, 0.09); };
+const playFanfare = () =>
+  [523, 659, 784, 1047].forEach((f, i) => tone(f, 0.3, i * 0.13, "triangle", 0.06));
+
+$("sound-toggle").checked = soundOn;
+$("sound-toggle").addEventListener("change", (e) => {
+  soundOn = e.target.checked;
+  localStorage.setItem(SOUND_KEY, soundOn ? "on" : "off");
+  if (soundOn) playTwentySound();
+});
+
+/* ---------- share result ---------- */
+$("share-result").addEventListener("click", async () => {
+  if (!state || state.winner === null) return;
+  try { await document.fonts.ready; } catch {}
+  const W = 800;
+  const rowH = 84;
+  const H = 200 + state.sides.length * rowH;
+  const c = document.createElement("canvas");
+  c.width = W;
+  c.height = H;
+  const x = c.getContext("2d");
+  x.fillStyle = "#1b1410";
+  x.fillRect(0, 0, W, H);
+  x.strokeStyle = "rgba(217,164,94,0.08)";
+  x.lineWidth = 10;
+  for (let r = 40; r < 420; r += 42) {
+    x.beginPath();
+    x.arc(W - 80, 70, r, 0, Math.PI * 2);
+    x.stroke();
+  }
+  x.fillStyle = "#d4a04c";
+  x.font = "600 42px Fraunces, Georgia, serif";
+  x.fillText("Crokinole", 40, 70);
+  x.fillStyle = "#a8957c";
+  x.font = "18px system-ui, sans-serif";
+  const d = new Date();
+  x.fillText(`${MODE_LABELS[state.mode] || state.mode} · ${d.toLocaleDateString()}`, 40, 102);
+  state.sides.forEach((sd, i) => {
+    const y = 170 + i * rowH;
+    const winner = state.winner === i;
+    x.fillStyle = winner ? "#d4a04c" : "#f3ead9";
+    x.font = "600 30px Fraunces, Georgia, serif";
+    x.fillText(`${winner ? "🏆 " : ""}${sd.name}`, 40, y);
+    x.font = "600 52px Fraunces, Georgia, serif";
+    x.fillStyle = winner ? "#d4a04c" : "#d9a45e";
+    const sc = String(state.scores[i]);
+    x.fillText(sc, W - 60 - x.measureText(sc).width, y + 6);
+    x.fillStyle = "#a8957c";
+    x.font = "16px system-ui, sans-serif";
+    x.fillText(`${state.twenties[i]} twenties`, 40, y + 26);
+  });
+  x.fillStyle = "#6b5a47";
+  x.font = "15px system-ui, sans-serif";
+  x.fillText("scored with the Crokinole Scorer app", 40, H - 30);
+  c.toBlob(async (blob) => {
+    const file = new File([blob], "crokinole-result.png", { type: "image/png" });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) {
+      try { await navigator.share({ files: [file], title: "Crokinole result" }); return; } catch {}
+    }
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "crokinole-result.png";
+    a.click();
+    URL.revokeObjectURL(a.href);
+  });
 });
 
 /* ---------- backup & restore ---------- */

@@ -167,12 +167,12 @@
 
   // ---- tuning ----
   const DISCS_PER_PLAYER = 8;
-  const FRICTION = 0.985;
+  const FRICTION = 0.987;        // lacquered + waxed board: low surface drag, discs glide
   const STOP = 0.05;
   const SINK = R * 0.012;        // disc must be nearly settled to drop in
   const DROP_R = R * 0.03;       // and nearly centred over the hole (precision)
   const HOLE_FRICTION = 0.95;    // a little extra drag over the hole (forgiveness)
-  const REST_DISC = 0.9;
+  const REST_DISC = 0.5;         // wood-on-wood: a solid thunk with follow-through, not a bounce
   const REST_PEG = 0.55;
   const SUBSTEPS = 6;
   const MAX_DRAG = R;

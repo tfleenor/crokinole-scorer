@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "v15"; // keep in step with CACHE in sw.js
+const APP_VERSION = "v16"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
 const HISTORY_KEY = "crokinole-history-v1";

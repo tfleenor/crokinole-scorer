@@ -199,6 +199,7 @@
   let msgTimer = null;
   let vsCPU = false;       // is Player 2 the computer?
   let aiLevel = "Medium";
+  let aiAim = null;        // {tx,ty,open} held between the CPU positioning and its shot
   const AI_ORDER = ["Easy", "Medium", "Hard"];
   const AI_LEVELS = {       // ang/pow = jitter spread (bigger = less accurate)
     Easy: { ang: 0.24, pow: 0.36 },
@@ -271,15 +272,30 @@
     }
   }
 
-  // Computer opponent: go for the 20 on an open board, otherwise hit a disc.
+  // How blocked the straight line from (x0,y0) to (x1,y1) is by pegs.
+  function pathBlocked(x0, y0, x1, y1) {
+    const dx = x1 - x0, dy = y1 - y0, L = dx * dx + dy * dy || 1;
+    let n = 0;
+    for (const p of PEGS) {
+      let t = ((p.x - x0) * dx + (p.y - y0) * dy) / L;
+      t = Math.max(0, Math.min(1, t));
+      const qx = x0 + dx * t, qy = y0 + dy * t;
+      if (Math.hypot(p.x - qx, p.y - qy) < discR + pegR + 1) n++;
+    }
+    return n;
+  }
+
+  // Computer turn, step 1: choose a target and slide the disc along its quadrant
+  // arc to the position with the clearest lane, then take the shot after a beat.
   function aiMove() {
     if (!vsCPU || turn !== 1 || phase !== "aim" || !active) return;
     const opp = 1 - turn;
     const oppDiscs = discs.filter((d) => d !== active && d.player === opp);
-    let tx, ty, power;
-    if (oppDiscs.length === 0) {
+    const q = QUAD[turn];
+    let tx, ty;
+    const open = oppDiscs.length === 0;
+    if (open) {
       tx = cx; ty = cy;                                  // open board: attack the 20
-      power = dist(active.x, active.y, cx, cy) * 0.018 + 0.3;
     } else {
       let best = oppDiscs[0], bestVal = -1;              // prefer the disc nearest centre
       for (const d of oppDiscs) {
@@ -287,8 +303,28 @@
         if (v > bestVal) { bestVal = v; best = d; }
       }
       tx = best.x; ty = best.y;
-      power = dist(active.x, active.y, tx, ty) * 0.018 + 2.2;  // hit hard enough to clear it
     }
+    // sample arc positions; favour a clear lane and a more direct line
+    let bestPos = { x: active.x, y: active.y }, bestScore = -Infinity;
+    const N = 9;
+    for (let i = 0; i < N; i++) {
+      const a = q.lo + (q.hi - q.lo) * (i / (N - 1));
+      const px = cx + START_R * Math.cos(a), py = cy + START_R * Math.sin(a);
+      const score = -pathBlocked(px, py, tx, ty) * 100 - dist(px, py, tx, ty) * 0.05;
+      if (score > bestScore) { bestScore = score; bestPos = { x: px, y: py }; }
+    }
+    active.x = bestPos.x; active.y = bestPos.y;          // visible reposition
+    aiAim = { tx: tx, ty: ty, open: open };
+    setTimeout(aiShoot, 520);
+  }
+
+  // Computer turn, step 2: aim from the chosen position and flick.
+  function aiShoot() {
+    if (!vsCPU || turn !== 1 || phase !== "aim" || !active || !aiAim) return;
+    const { tx, ty, open } = aiAim;
+    let power = open
+      ? dist(active.x, active.y, cx, cy) * 0.018 + 0.3
+      : dist(active.x, active.y, tx, ty) * 0.018 + 2.2;
     const lv = AI_LEVELS[aiLevel];
     let ang = Math.atan2(ty - active.y, tx - active.x);
     ang += (Math.random() - 0.5) * lv.ang;               // aim jitter (scales with difficulty)
@@ -774,12 +810,13 @@
       if (phase !== "aim" || !active) return;
       flick(vx, vy);
     },
-    state() { return { phase, turn, left: left.slice(), sunk: sunk.slice(), discs: discs.length, s0: totalScore(0), s1: totalScore(1), round, rounds: matchRounds, match: matchScore.slice(), foul: lastFoul }; },
+    state() { return { phase, turn, left: left.slice(), sunk: sunk.slice(), discs: discs.length, s0: totalScore(0), s1: totalScore(1), round, rounds: matchRounds, match: matchScore.slice(), foul: lastFoul, ax: active ? Math.round(active.x) : null, ay: active ? Math.round(active.y) : null }; },
     tick(n) { for (let i = 0; i < n && phase === "sim"; i++) step(); }, // deterministic stepping for tests
     redraw() { draw(); },
     setMode(b) { vsCPU = b; },
     setLevel(l) { aiLevel = l; },
-    cpu() { aiMove(); },
+    cpu() { aiMove(); aiShoot(); },   // run both CPU steps synchronously for tests
+    cpuPlace() { aiMove(); },          // just the positioning step
   };
 
   newGame();

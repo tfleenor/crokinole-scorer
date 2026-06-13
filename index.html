@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#221c18">
 <title>Crokinole Scorer</title>
+<link rel="preload" href="fraunces-600.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -294,6 +295,10 @@
       <p><strong>Rules reference.</strong> The Rules tab above covers setup,
       shooting, the 20 hole, scoring, tournament play, doubles, and this
       app&rsquo;s handicap system.</p>
+      <p><strong>Game-night feel.</strong> Disc-styled tally buttons in each
+      side&rsquo;s colour with haptic ticks, animated scores with a leader glow,
+      round pips and race-to-target bars, and a confetti celebration with a
+      one-tap rematch when a game ends.</p>
       <p><strong>Works offline.</strong> The app is an installable web app
       (PWA): add it to your home screen and it runs fullscreen with no connection
       needed.</p>
@@ -343,6 +348,17 @@
     </details>
   </section>
 </main>
+
+<div id="win-overlay" class="hidden">
+  <div id="confetti"></div>
+  <div class="win-card">
+    <div class="win-trophy">🏆</div>
+    <h2 id="win-title"></h2>
+    <p id="win-score"></p>
+    <button id="rematch" class="btn primary big">Rematch</button>
+    <button id="win-close" class="btn">Close</button>
+  </div>
+</div>
 
 <div id="toasts"></div>
 

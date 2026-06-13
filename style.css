@@ -1,14 +1,24 @@
+@font-face {
+  font-family: "Fraunces";
+  src: url("fraunces-600.woff2") format("woff2");
+  font-weight: 600;
+  font-display: swap;
+}
+
 :root {
-  --bg: #221c18;
-  --card: #2e2620;
-  --card-edge: #3d332a;
-  --text: #f0e6d8;
-  --muted: #a89880;
-  --wood: #d29a5c;
-  --wood-deep: #b5762f;
+  --bg: #1b1410;
+  --card: #2a211a;
+  --card-hi: #31261d;
+  --card-edge: #3e3024;
+  --text: #f3ead9;
+  --muted: #a8957c;
+  --wood: #d9a45e;
+  --wood-deep: #b07a33;
+  --brass: #d4a04c;
   --green: #6fae5c;
   --red: #c4553d;
   --radius: 14px;
+  --display: "Fraunces", Georgia, serif;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -36,7 +46,7 @@ body {
   top: 0;
   z-index: 10;
 }
-.topbar h1 { font-size: 1.25rem; margin: 0; color: var(--wood); letter-spacing: 0.5px; }
+.topbar h1 { font-family: var(--display); font-size: 1.3rem; margin: 0; color: var(--brass); letter-spacing: 0.5px; }
 .tab {
   background: none;
   border: none;
@@ -46,18 +56,23 @@ body {
   border-radius: 8px;
   cursor: pointer;
 }
-.tab.active { color: var(--text); background: var(--card-edge); }
+.tab.active { color: var(--bg); background: linear-gradient(180deg, var(--brass), var(--wood-deep)); font-weight: 600; }
 
 /* ---- cards & layout ---- */
-main { max-width: 520px; margin: 0 auto; padding: 14px; }
+main { max-width: 520px; margin: 0 auto; padding: 14px; animation: view-in 0.22s ease-out; }
+@keyframes view-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: none; }
+}
 .card {
-  background: var(--card);
+  background: linear-gradient(165deg, var(--card-hi), var(--card));
   border: 1px solid var(--card-edge);
   border-radius: var(--radius);
   padding: 16px;
   margin-bottom: 14px;
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.35);
 }
-h2 { margin-top: 0; color: var(--wood); }
+h2 { font-family: var(--display); margin-top: 0; color: var(--wood); }
 h3 { margin-top: 0; color: var(--muted); font-size: 0.95rem; text-transform: uppercase; letter-spacing: 1px; }
 
 /* ---- setup form ---- */
@@ -88,20 +103,54 @@ h3 { margin-top: 0; color: var(--muted); font-size: 0.95rem; text-transform: upp
   border-radius: 10px;
   cursor: pointer;
 }
-.btn.primary { background: var(--wood-deep); color: #fff; }
+.btn { transition: transform 0.08s; }
+.btn.primary { background: linear-gradient(180deg, #c8924a, #a06a28); color: #fff; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4); }
 .btn.danger { background: none; border: 1px solid var(--red); color: var(--red); }
 .btn.big { padding: 16px; font-size: 1.15rem; }
-.btn:active { filter: brightness(1.15); }
+.btn:active { filter: brightness(1.12); transform: scale(0.97); }
 
 /* ---- scoreboard ---- */
-.scoreboard { text-align: center; padding: 12px; }
-.sb-sides { display: flex; justify-content: space-around; gap: 8px; }
-.sb-mid { color: var(--muted); font-size: 0.85rem; margin-top: 8px; }
+.scoreboard { text-align: center; padding: 14px 12px; position: relative; overflow: hidden; }
+.scoreboard::before {
+  /* faint crokinole-board rings behind the scores */
+  content: "";
+  position: absolute;
+  inset: -60px 0;
+  background: repeating-radial-gradient(
+    circle at 50% 50%,
+    transparent 0 30px,
+    rgba(217, 164, 94, 0.055) 30px 32px
+  );
+  pointer-events: none;
+}
+.sb-sides { display: flex; justify-content: space-around; gap: 8px; position: relative; }
+.sb-mid { color: var(--muted); font-size: 0.85rem; margin-top: 10px; position: relative; }
 .scoreboard .side { flex: 1; min-width: 0; }
 .scoreboard .name { font-size: 0.95rem; color: var(--muted); overflow-wrap: anywhere; }
-.scoreboard .pts { font-size: 2.4rem; font-weight: 700; color: var(--wood); line-height: 1.1; }
+.scoreboard .pts {
+  font-family: var(--display);
+  font-variant-numeric: tabular-nums;
+  font-size: 2.6rem;
+  font-weight: 600;
+  color: var(--wood);
+  line-height: 1.15;
+  transition: color 0.4s;
+}
+.scoreboard .side.leading .pts {
+  color: var(--brass);
+  text-shadow: 0 0 16px rgba(212, 160, 76, 0.45);
+}
 .scoreboard .sub { font-size: 0.8rem; color: var(--muted); }
-.scoreboard .mid { align-self: center; color: var(--muted); font-size: 0.85rem; padding: 0 8px; }
+.pips { letter-spacing: 4px; color: var(--brass); }
+.pips .open { color: var(--card-edge); }
+
+/* race-to-target progress bars */
+.race { margin-top: 8px; display: grid; gap: 4px; }
+.race-row { height: 5px; background: rgba(0, 0, 0, 0.35); border-radius: 999px; overflow: hidden; }
+.race-fill { display: block; height: 100%; border-radius: 999px; transition: width 0.6s ease; }
+.race-fill.c0 { background: linear-gradient(90deg, #c98f4e, #e8c189); }
+.race-fill.c1 { background: linear-gradient(90deg, #41301f, #8a6b4d); }
+.race-fill.c2 { background: linear-gradient(90deg, #6e2519, #b0543e); }
 
 /* ---- winner banner ---- */
 .banner {
@@ -121,20 +170,39 @@ h3 { margin-top: 0; color: var(--muted); font-size: 0.95rem; text-transform: upp
 .side-card { padding: 12px; margin-bottom: 0; }
 .side-card h3 { text-align: center; margin-bottom: 10px; color: var(--text); text-transform: none; letter-spacing: 0; font-size: 1rem; overflow-wrap: anywhere; }
 .counter { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
-.counter .label { width: 30px; font-weight: 700; color: var(--wood); font-size: 1.05rem; }
+.counter .label { width: 30px; font-family: var(--display); color: var(--wood); font-size: 1.05rem; }
 .counter .val { width: 28px; text-align: center; font-size: 1.15rem; font-variant-numeric: tabular-nums; }
 .counter button {
-  width: 42px;
-  height: 42px;
-  font-size: 1.4rem;
+  width: 46px;
+  height: 46px;
+  font-size: 1.35rem;
   font-weight: 700;
-  color: var(--text);
-  background: var(--card-edge);
   border: none;
-  border-radius: 10px;
+  border-radius: 50%;
   cursor: pointer;
+  transition: transform 0.08s;
 }
-.counter button:active { background: var(--wood-deep); }
+.counter button:active { transform: scale(0.88); }
+/* the + button is a crokinole disc — natural for side 1, stained for side 2,
+   mahogany for a third cutthroat player */
+.counter .inc {
+  color: #3a2410;
+  background: radial-gradient(circle at 35% 30%, #e8c189, #c98f4e 55%, #96612a);
+  box-shadow: inset 0 -3px 5px rgba(0, 0, 0, 0.35), inset 0 2px 3px rgba(255, 255, 255, 0.25), 0 2px 5px rgba(0, 0, 0, 0.45);
+}
+.side-c1 .inc {
+  color: #e8d9c4;
+  background: radial-gradient(circle at 35% 30%, #6b5443, #41301f 55%, #221710);
+}
+.side-c2 .inc {
+  color: #f3d9c9;
+  background: radial-gradient(circle at 35% 30%, #b0543e, #7e2e1d 55%, #4d1a0e);
+}
+.counter .dec {
+  background: transparent;
+  border: 2px solid var(--card-edge);
+  color: var(--muted);
+}
 .round-total { text-align: center; margin-top: 10px; font-size: 0.9rem; color: var(--muted); }
 .round-total strong { color: var(--text); font-size: 1.2rem; }
 
@@ -290,6 +358,50 @@ h3 { margin-top: 0; color: var(--muted); font-size: 0.95rem; text-transform: upp
 .file-btn { text-align: center; cursor: pointer; }
 .file-btn input { display: none; }
 #version-line { color: var(--muted); font-size: 0.9rem; }
+
+/* ---- winner overlay & confetti ---- */
+#win-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 10, 6, 0.78);
+  backdrop-filter: blur(3px);
+  padding: 20px;
+}
+.win-card {
+  background: linear-gradient(165deg, var(--card-hi), var(--card));
+  border: 2px solid var(--brass);
+  border-radius: 18px;
+  box-shadow: 0 12px 50px rgba(0, 0, 0, 0.6);
+  padding: 28px 24px;
+  text-align: center;
+  width: min(92vw, 380px);
+  animation: win-pop 0.45s cubic-bezier(0.18, 1.4, 0.4, 1);
+  position: relative;
+  z-index: 2;
+}
+@keyframes win-pop {
+  from { opacity: 0; transform: scale(0.7) translateY(30px); }
+  to { opacity: 1; transform: none; }
+}
+.win-trophy { font-size: 3.2rem; }
+.win-card h2 { font-family: var(--display); color: var(--brass); margin: 10px 0 4px; font-size: 1.5rem; }
+.win-card p { color: var(--muted); margin: 4px 0 18px; }
+#confetti { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 1; }
+.confetti-piece {
+  position: absolute;
+  top: -12px;
+  width: 9px;
+  height: 14px;
+  border-radius: 2px;
+  animation: confetti-fall linear forwards;
+}
+@keyframes confetti-fall {
+  to { transform: translateY(110vh) rotate(720deg); }
+}
 
 /* ---- achievement toasts ---- */
 #toasts {

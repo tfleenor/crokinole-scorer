@@ -1,6 +1,6 @@
 "use strict";
 
-const APP_VERSION = "v10"; // keep in step with CACHE in sw.js
+const APP_VERSION = "v11"; // keep in step with CACHE in sw.js
 const STORAGE_KEY = "crokinole-state-v2";
 const PROFILES_KEY = "crokinole-profiles-v1";
 const VALUES = [20, 15, 10, 5];
@@ -378,6 +378,7 @@ $("start").addEventListener("click", () => {
     };
   });
   const hc = $("use-handicap").checked ? handicapInfo() : null;
+  lastScores = null;
   state = {
     mode,
     scoring: setupScoring(),
@@ -484,6 +485,54 @@ $("score-round").addEventListener("click", () => {
     }
   }
   showToasts(toasts);
+  if (state.winner !== null) setTimeout(showWinOverlay, 700);
+});
+
+/* ---------- winner celebration ---------- */
+function showWinOverlay() {
+  if (!state || state.winner === null) return;
+  if (state.winner === -1) {
+    $("win-title").textContent = "Dead tie!";
+  } else {
+    $("win-title").textContent = `${state.sides[state.winner].name} wins!`;
+  }
+  $("win-score").textContent = state.sides
+    .map((sd, i) => `${sd.name} ${state.scores[i]}`)
+    .join(" · ");
+  $("win-overlay").classList.remove("hidden");
+  if (state.winner !== -1) spawnConfetti();
+}
+
+function spawnConfetti() {
+  const box = $("confetti");
+  box.innerHTML = "";
+  const colors = ["#d4a04c", "#e8c189", "#b0543e", "#6fae5c", "#f3ead9"];
+  for (let i = 0; i < 50; i++) {
+    const p = document.createElement("span");
+    p.className = "confetti-piece";
+    p.style.left = Math.random() * 100 + "%";
+    p.style.background = colors[i % colors.length];
+    p.style.animationDuration = 2.2 + Math.random() * 2 + "s";
+    p.style.animationDelay = Math.random() * 0.8 + "s";
+    box.appendChild(p);
+  }
+  setTimeout(() => (box.innerHTML = ""), 5500);
+}
+
+$("win-close").addEventListener("click", () =>
+  $("win-overlay").classList.add("hidden")
+);
+
+$("rematch").addEventListener("click", () => {
+  state.scores = state.sides.map(() => 0);
+  state.twenties = state.sides.map(() => 0);
+  state.rounds = [];
+  state.tally = state.sides.map(() => blankTally());
+  state.winner = null;
+  lastScores = null;
+  $("win-overlay").classList.add("hidden");
+  save();
+  render();
 });
 
 $("undo").addEventListener("click", () => {
@@ -522,6 +571,7 @@ $("new-game").addEventListener("click", () => {
     confirm("Abandon the current game?")
   ) {
     state = null;
+    lastScores = null;
     localStorage.removeItem(STORAGE_KEY);
     renderPickers();
     render();
@@ -704,7 +754,7 @@ function render() {
   const S = state.sides.length;
   if ($("tally-area").childElementCount !== S) {
     $("tally-area").innerHTML = state.sides
-      .map((_, i) => `<div class="card side-card" id="side${i}"></div>`)
+      .map((_, i) => `<div class="card side-card side-c${i}" id="side${i}"></div>`)
       .join("");
   }
   $("tally-area").classList.toggle("three", S === 3);
@@ -713,11 +763,40 @@ function render() {
   $("score-round").classList.toggle("hidden", state.winner !== null);
 }
 
+let lastScores = null;
+
+function animateNumber(el, from, to) {
+  const t0 = performance.now();
+  const dur = 600;
+  const step = (t) => {
+    const k = Math.min(1, (t - t0) / dur);
+    const eased = 1 - Math.pow(1 - k, 3);
+    el.textContent = Math.round(from + (to - from) * eased);
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
 function renderScoreboard() {
   const rounds = gameScoring() === "rounds";
-  const mid = rounds
-    ? `Round ${Math.min(state.rounds.length + 1, state.totalRounds)} of ${state.totalRounds}`
-    : `to ${state.target} · round ${state.rounds.length + 1}`;
+  let mid;
+  if (rounds) {
+    const played = Math.min(state.rounds.length, state.totalRounds);
+    const pips =
+      "●".repeat(played) +
+      `<span class="open">${"●".repeat(state.totalRounds - played)}</span>`;
+    mid = `<span class="pips">${pips}</span><br>round ${Math.min(state.rounds.length + 1, state.totalRounds)} of ${state.totalRounds}`;
+  } else {
+    const bars = state.sides
+      .map((_, i) => {
+        const w = Math.min(100, (state.scores[i] / state.target) * 100);
+        return `<div class="race-row"><span class="race-fill c${i}" style="width:${w}%"></span></div>`;
+      })
+      .join("");
+    mid = `to ${state.target}<div class="race">${bars}</div>`;
+  }
+  const top = Math.max(...state.scores);
+  const leaders = state.scores.filter((s) => s === top).length;
   const sub = (i) => {
     const parts = [];
     if (state.handicap && state.handicap.to === i)
@@ -728,7 +807,7 @@ function renderScoreboard() {
   const sidesHtml = state.sides
     .map(
       (sd, i) => `
-    <div class="side">
+    <div class="side${top > 0 && leaders === 1 && state.scores[i] === top ? " leading" : ""}">
       <div class="name">${esc(sd.name)}</div>
       <div class="pts">${state.scores[i]}</div>
       <div class="sub">${sub(i)}</div>
@@ -736,6 +815,14 @@ function renderScoreboard() {
     )
     .join("");
   $("scoreboard").innerHTML = `<div class="sb-sides">${sidesHtml}</div><div class="sb-mid">${mid}</div>`;
+
+  const ptsEls = $("scoreboard").querySelectorAll(".pts");
+  if (lastScores && lastScores.length === state.scores.length) {
+    state.scores.forEach((s, i) => {
+      if (lastScores[i] !== s) animateNumber(ptsEls[i], lastScores[i], s);
+    });
+  }
+  lastScores = [...state.scores];
 }
 
 function renderBanner() {
@@ -813,6 +900,7 @@ $("tally-area").addEventListener("click", (e) => {
   const maxDiscs = sideDiscs(side) * state.sides[side].players.length;
   if (btn.classList.contains("inc") && t[value] < maxDiscs) t[value]++;
   if (btn.classList.contains("dec") && t[value] > 0) t[value]--;
+  if (navigator.vibrate) navigator.vibrate(8);
   save();
   renderSide(side);
 });

@@ -1,4 +1,4 @@
-const CACHE = "crokinole-v10";
+const CACHE = "crokinole-v11";
 const ASSETS = [
   ".",
   "index.html",
@@ -7,6 +7,7 @@ const ASSETS = [
   "manifest.webmanifest",
   "icon-192.png",
   "icon-512.png",
+  "fraunces-600.woff2",
 ];
 
 self.addEventListener("install", (e) => {

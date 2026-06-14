@@ -69,6 +69,11 @@ body {
 /* ---- cards & layout ---- */
 main { max-width: 520px; margin: 0 auto; padding: 14px; animation: view-in 0.22s ease-out; }
 
+/* ---- buy me a coffee ---- */
+.coffee { text-align: center; margin: 18px 0 4px; }
+.coffee a { color: var(--brass); text-decoration: none; font-size: 0.95rem; border: 1px solid var(--card-edge); border-radius: 999px; padding: 8px 16px; display: inline-block; }
+.coffee a:active { filter: brightness(1.15); }
+
 /* ---- embedded game (Play tab) ---- */
 #view-play { max-width: 100%; padding: 0; }
 #game-frame { width: 100%; height: calc(100vh - 54px); border: 0; display: block; }
